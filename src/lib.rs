@@ -1,4 +1,5 @@
 
+    use std::fmt::format;
     use std::{collections::BTreeMap, borrow::Cow};
     use std::env;
     use std::os::unix;
@@ -151,6 +152,6 @@ impl BuildConfigProvider {
     } 
 
     pub fn get_from_env(self, target_triple_key: &String) -> BuildConfiguration {
-        self.get(&env::var(target_triple_key).unwrap())
+        self.get(&env::var(target_triple_key).map_err(|_| format!("can not find env variable: {}", target_triple_key)).unwrap())
     }
 }

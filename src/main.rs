@@ -40,9 +40,21 @@ fn main() {
         vec![LinkSource::new(LinkSourceType::Env, String::from("$PB_SYSTEM_PATH"))]
     ));
 
-    cfg
+    if env::args().len() > 2 {
+        let args: Vec<_> = env::args().collect();
+
+
+        cfg
+        .get(&args[2])
+        .into_env(&|s: &String| Path::new(s).exists());
+
+    } else {
+        cfg
         .get_from_env(&String::from("TARGET"))
         .into_env(&|s: &String| Path::new(s).exists());
+
+    }
+
 
 
     let cc = env::var("CC").unwrap();
