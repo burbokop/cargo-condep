@@ -1,9 +1,15 @@
+
+use std::{collections::BTreeMap, env, path::Path};
+use cargo_find_target::{BuildConfigProvider, BuildConfiguration, ValueAlternatives, LinkSource, EnvStr, LinkSourceType};
+
+
 fn main() {
-    use std::{collections::BTreeMap, env, path::Path};
-    use crate::build_cfg::{BuildConfigProvider, BuildConfiguration, ValueAlternatives, LinkSource, EnvStr};
 
     //"TARGET"
 
+    for argument in env::args() {
+        println!("arg: {}", argument);
+    }
 
     println!("cargo:warning=$PB_SDK_DIR/usr/bin/$PB_SUSTEM_PATH/config -> {}", EnvStr::from("$PB_SDK_DIR/usr/bin/$PB_SYSTEM_PATH/config").str().into_owned());
 
@@ -19,7 +25,7 @@ fn main() {
                 (String::from("LD_LIBRARY_PATH"), ValueAlternatives::from("$QT_LIBRARY_PATH:$LD_LIBRARY_PATH"))
                 ]),
             vec![EnvStr::from("$PB_SDK_DIR/../env_set.sh")],
-            vec![LinkSource::new(build_cfg::LinkSourceType::Env, String::from("$PB_SYSTEM_PATH"))]
+            vec![LinkSource::new(LinkSourceType::Env, String::from("$PB_SYSTEM_PATH"))]
         )),
     ]),
 
@@ -31,7 +37,7 @@ fn main() {
             (String::from("LD_LIBRARY_PATH"), ValueAlternatives::from("$QT_LIBRARY_PATH:$LD_LIBRARY_PATH"))
         ]),
         vec![],
-        vec![LinkSource::new(build_cfg::LinkSourceType::Env, String::from("$PB_SYSTEM_PATH"))]
+        vec![LinkSource::new(LinkSourceType::Env, String::from("$PB_SYSTEM_PATH"))]
     ));
 
     cfg
