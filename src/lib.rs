@@ -26,7 +26,7 @@ mod print {
 
 
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct EnvStr {
     str: String
 }
@@ -54,7 +54,7 @@ impl EnvStr {
 }
 
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct ValueAlternatives {
     alt: Vec<EnvStr>,
 }
@@ -68,6 +68,14 @@ impl ValueAlternatives {
         self
             .alt
             .into_iter().map(|x| x.str().into_owned())
+            .find(predicate)
+            .map(|v| { env::set_var(key, &v); v })
+    }
+
+    pub fn setup_env<F: Fn(&String) -> bool>(&self, key: &String, predicate: &F) -> Option<String> {
+        self
+            .alt
+            .iter().map(|x| x.str().into_owned())
             .find(predicate)
             .map(|v| { env::set_var(key, &v); v })
     }
@@ -185,12 +193,12 @@ impl BuildConfiguration {
             }
         }
         for (k, v) in self.env.into_iter() {
-            let val = v.into_env(&k, predicate);
+            let val = v.setup_env(&k, predicate);
 
             if verbose {
                 match val {
                     Some(v) => print::info(format!("Setting env {}={}", k, v)),
-                    None => print::warning(format!("Setting env failed: {}", k)),
+                    None => print::warning(format!("Setting env failed: {} (alternatives: {:?})", k, &v)),
                 }
             }
         }

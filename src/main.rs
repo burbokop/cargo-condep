@@ -32,7 +32,7 @@ fn pb_default_config() -> BuildConfigProvider {
         	(String::from("LD_LIBRARY_PATH"), ValueAlternatives::from("$QT_LIBRARY_PATH:$LD_LIBRARY_PATH"))
     	]),
     	vec![],
-    	vec![LinkSource::new(LinkSourceType::Env, String::from("$PB_SYSTEM_PATH"))]
+    	vec![LinkSource::new(LinkSourceType::Env, String::from("PB_SYSTEM_PATH"))]
     ))
 }
 
