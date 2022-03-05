@@ -1,5 +1,7 @@
 
-    use std::fmt::format;
+    use std::convert::identity;
+    use std::error::Error;
+    use std::fmt::{format, Display};
     use std::{collections::BTreeMap, borrow::Cow};
     use std::env;
     use std::os::unix;
@@ -107,14 +109,41 @@ pub struct BuildConfiguration {
     links: Vec<LinkSource>
 }
 
-pub fn source(cmd: &String) {
-    let o = Command::new("/bin/bash")
-        .arg("-c")
-        .arg(format!(". {}", cmd))
-        .output()
-        .unwrap();
+#[derive(Debug)]
+pub enum DumpEnvError {
+    IOError(std::io::Error),
+    FromUtf8Error(std::string::FromUtf8Error),
+    NotImplemented
+}
 
-    println!("source out: {:?}", o);
+#[cfg(target_os = "linux")]
+pub fn dump_environment(bash_file: &String) -> Result<BTreeMap<String, String>, DumpEnvError> {
+    Command::new("/bin/bash")
+        .arg("-c")
+        .arg(format!(". {} && env", bash_file))
+        .output()
+        .map_err(|err| DumpEnvError::IOError(err))
+        .and_then(|r| String::from_utf8(r.stdout)
+            .map_err(|err| DumpEnvError::FromUtf8Error(err))
+            .map(|out| out
+                .split('\n')
+                .map(|pair| pair.split_once('='))
+                .filter_map(identity)
+                .map(|(k, v)| (String::from(k), String::from(v)))
+                .collect::<BTreeMap<String, String>>()
+            )
+        )
+}
+
+#[cfg(not(target_os = "linux"))]
+pub fn dump_environment(_bash_file: &String) -> Result<BTreeMap<String, String>, DumpEnvError> {
+    DumpEnvError::NotImplemented
+}
+
+pub fn merge_environment(top: BTreeMap<String, String>) {
+    for (k, v) in top {
+        env::set_var(k, v)
+    }
 }
 
 impl BuildConfiguration {
@@ -125,10 +154,10 @@ impl BuildConfiguration {
         for src in self.sources.into_iter() {
             let cmd = src.path().unwrap();
             println!("cargo:warning=source: `{:?}`", &cmd);
-            source(&String::from(cmd
+            merge_environment(dump_environment(&String::from(cmd
                 .as_os_str()
                 .to_str().unwrap())
-            );
+            ).unwrap());
         }
         for (k, v) in self.env.into_iter() {
             if !v.into_env(&k, predicate) {

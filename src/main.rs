@@ -5,6 +5,7 @@ use cargo_find_target::{BuildConfigProvider, BuildConfiguration, ValueAlternativ
 
 
 use clap::Parser;
+use termion::color;
 
 #[derive(Parser, Debug)]
 #[clap(author, version, about, long_about = None)]
@@ -17,19 +18,38 @@ struct Args {
 }
 
 
+
+#[derive(Parser)]
+#[clap(name = "cargo")]
+#[clap(bin_name = "cargo")]
+enum Cargo {
+    Generate(Generate),
+}
+
+#[derive(clap::Args)]
+#[clap(author, version, about, long_about = None)]
+struct Generate {
+    #[clap(long, parse(from_os_str))]
+    manifest_path: Option<std::path::PathBuf>,
+}
+
+
+
 fn main() {
+    let Cargo::Generate(args) = Cargo::parse();
+    println!("{:?}", args.manifest_path);
 
-    let args = Args::parse();
 
+    //let args = Args::parse();
+/*
     if args.cmd == "s" {
         println!("Hello {} {}!", args.cmd, args.target);
 
-        env_perm::set("GG", "AAAAAAA").unwrap();
+        //env_perm::set("GG", "AAAAAAA").unwrap();
 
         return;
     }
-
-
+*/
 
     for argument in env::args() {
         println!("arg: {}", argument);
@@ -82,8 +102,12 @@ fn main() {
     }
 */
 
-    cargo_find_target::source(&String::from("/home/boris/projects/rust/conf_plugin/some.sh"));
+    //let o = cargo_find_target::dump_environment(&String::from("/home/ivan/workspace/projects/conf_plugin/some.sh")).unwrap();
 
+
+    //for (k, v) in o {
+    //    println!("{}env var: {} -> {}{}{}", color::Fg(color::Magenta), k, color::Fg(color::Yellow), v, color::Reset{}.fg_str())
+    //}
 
     let cc = env::var("SSS").unwrap();
 
