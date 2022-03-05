@@ -40,6 +40,8 @@ fn main() {
         vec![LinkSource::new(LinkSourceType::Env, String::from("$PB_SYSTEM_PATH"))]
     ));
 
+    /*
+
     if env::args().len() > 2 {
         let args: Vec<_> = env::args().collect();
 
@@ -54,16 +56,18 @@ fn main() {
         .into_env(&|s: &String| Path::new(s).exists());
 
     }
+*/
+
+    cargo_find_target::source(&String::from("/home/boris/projects/rust/conf_plugin/some.sh"));
 
 
-
-    let cc = env::var("CC").unwrap();
+    let cc = env::var("SSS").unwrap();
 
     let out_dir = env::var_os("OUT_DIR").unwrap();
     
     println!("gogadoda3");
     println!("cargo:warning={} {}", "output dir:", out_dir.into_string().unwrap());
-    println!("cargo:warning={} {}", "CC:", cc);
+    println!("cargo:warning={} {}", "SSS:", cc);
 
     
     println!("cargo:rerun-if-changed=build.rs");

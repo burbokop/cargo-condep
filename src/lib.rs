@@ -107,6 +107,16 @@ pub struct BuildConfiguration {
     links: Vec<LinkSource>
 }
 
+pub fn source(cmd: &String) {
+    let o = Command::new("/bin/bash")
+        .arg("-c")
+        .arg(format!(". {}", cmd))
+        .output()
+        .unwrap();
+
+    println!("source out: {:?}", o);
+}
+
 impl BuildConfiguration {
     pub fn new(env: BTreeMap<String, ValueAlternatives>, sources: Vec<EnvStr>, links: Vec<LinkSource>) -> Self {
         BuildConfiguration { env: env, sources: sources, links: links }
@@ -115,11 +125,10 @@ impl BuildConfiguration {
         for src in self.sources.into_iter() {
             let cmd = src.path().unwrap();
             println!("cargo:warning=source: `{:?}`", &cmd);
-            Command::new("/bin/bash")
-                .arg("-c")
-                .arg(format!("\". {:?}\"", &cmd))
-                .output()
-                .unwrap();
+            source(&String::from(cmd
+                .as_os_str()
+                .to_str().unwrap())
+            );
         }
         for (k, v) in self.env.into_iter() {
             if !v.into_env(&k, predicate) {
