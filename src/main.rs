@@ -1,11 +1,10 @@
 
-use std::{collections::BTreeMap, env, path::Path};
+use std::{collections::BTreeMap, path::Path};
 use cargo_generate::{BuildConfigProvider, BuildConfiguration, ValueAlternatives, LinkSource, EnvStr, LinkSourceType};
 
 
 
-use clap::{Parser, Subcommand};
-use termion::color;
+use clap::Parser;
 
 
 
@@ -18,7 +17,7 @@ fn pb_default_config() -> BuildConfigProvider {
             (String::from("QMAKE"), ValueAlternatives::from("$TOOLCHAIN_PATH/$TOOLCHAIN_PREFIX/sysroot/ebrmain/bin/qmake")),
             (String::from("QT_INCLUDE_PATH"), ValueAlternatives::from("$TOOLCHAIN_PATH/$TOOLCHAIN_PREFIX/sysroot/ebrmain/include")),
             (String::from("QT_LIBRARY_PATH"), ValueAlternatives::from("$TOOLCHAIN_PATH/$TOOLCHAIN_PREFIX/sysroot/ebrmain/lib")),
-            (String::from("LD_LIBRARY_PATH"), ValueAlternatives::from("$QT_LIBRARY_PATH:$LD_LIBRARY_PATH"))
+            (String::from("LD_LIBRARY_PATH"), ValueAlternatives::one_str("$QT_LIBRARY_PATH", cargo_generate::VarAction::Append))
             ],
         vec![EnvStr::from("$PB_SDK_DIR/../env_set.sh")],
         vec![LinkSource::new(LinkSourceType::Env, String::from("PB_SYSTEM_PATH"))]

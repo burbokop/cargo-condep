@@ -2,7 +2,7 @@
 use std::convert::identity;
 use std::fs;
 use std::{collections::BTreeMap, borrow::Cow};
-use std::env::{self, VarError};
+use std::env::{self, VarError, JoinPathsError};
 use std::os::unix;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -54,15 +54,51 @@ impl EnvStr {
     pub fn path(&self) -> std::io::Result<PathBuf> { std::fs::canonicalize(self.str().into_owned()) }
 }
 
+#[derive(Serialize, Deserialize, Debug)]
+pub enum VarAction {
+    Set,
+    Append
+}
+
+impl VarAction {
+    pub fn do_action(&self, key: &String, value: &String) -> bool {
+        match self {
+            VarAction::Set => { env::set_var(key, value); true },
+            VarAction::Append => {
+                match env::var(key) {
+                    Ok(path) => {
+                        let mut paths = env::split_paths(&path).collect::<Vec<_>>();
+                        paths.push(PathBuf::from(value));
+                        match env::join_paths(paths) {
+                            Ok(new_path) => Ok(env::set_var(key, &new_path)),
+                            Err(_) => Err(())
+                        }
+                    },
+                    Err(_) => Err(()),
+                }.map_err(|_| env::set_var(key, value)).is_ok()
+            } 
+        }
+    }
+}
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct ValueAlternatives {
     alt: Vec<EnvStr>,
+    action: VarAction
 }
 
+
 impl ValueAlternatives {
-    pub fn new(alt: Vec<EnvStr>) -> Self {
-        ValueAlternatives { alt: alt }
+    pub fn new(alt: Vec<EnvStr>, action: VarAction) -> Self {
+        ValueAlternatives { alt: alt, action: action }
+    }
+
+    pub fn one(alt: EnvStr, action: VarAction) -> Self {
+        ValueAlternatives { alt: vec![alt], action: action }
+    }
+
+    pub fn one_str(alt: &str, action: VarAction) -> Self {
+        ValueAlternatives { alt: vec![EnvStr::from(alt)], action: action }
     }
 
     pub fn into_env<F: Fn(&String) -> bool>(self, key: &String, predicate: &F) -> Option<String> {
@@ -70,7 +106,7 @@ impl ValueAlternatives {
             .alt
             .into_iter().map(|x| x.str().into_owned())
             .find(predicate)
-            .map(|v| { env::set_var(key, &v); v })
+            .map(|v| { self.action.do_action(key, &v); v })
     }
 
     pub fn setup_env<F: Fn(&String) -> bool>(&self, key: &String, predicate: &F) -> Option<String> {
@@ -78,13 +114,13 @@ impl ValueAlternatives {
             .alt
             .iter().map(|x| x.str().into_owned())
             .find(predicate)
-            .map(|v| { env::set_var(key, &v); v })
+            .map(|v| { self.action.do_action(key, &v); v })
     }
 }
 
 impl From<EnvStr> for ValueAlternatives {
     fn from(s: EnvStr) -> Self {
-        ValueAlternatives::new(vec![s])
+        ValueAlternatives::new(vec![s], VarAction::Set)
     }
 }
 impl From<&str> for ValueAlternatives {
