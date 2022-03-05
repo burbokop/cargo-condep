@@ -150,7 +150,7 @@ impl BuildConfiguration {
     pub fn new(env: BTreeMap<String, ValueAlternatives>, sources: Vec<EnvStr>, links: Vec<LinkSource>) -> Self {
         BuildConfiguration { env: env, sources: sources, links: links }
     }
-    pub fn into_env<F: Fn(&String) -> bool>(self, predicate: &F) {
+    pub fn into_env<F: Fn(&String) -> bool>(self, predicate: &F, verbose: bool) {
         for src in self.sources.into_iter() {
             let cmd = src.path().unwrap();
             println!("cargo:warning=source: `{:?}`", &cmd);

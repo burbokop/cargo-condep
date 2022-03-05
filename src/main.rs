@@ -67,16 +67,20 @@ enum GenerateSubCommand {
 #[clap(author, version, about, long_about = Some("aaa"))]
 struct Config {
     #[clap(long, parse(from_str))]
-    target: Option<String>
+    target: Option<String>,
+
+    #[clap(long, takes_value = true)]
+    verbose: bool
 }
 
 impl Config {
     fn exec(self) {
+        println!("self.verbose: {}", &self.verbose);
         let cfg = pb_default_config();
         match self.target {            
             Some(t) => cfg.get(&t),
             None => cfg.get_default(),
-        }.into_env(&|s: &String| Path::new(s).exists());
+        }.into_env(&|s: &String| Path::new(s).exists(), self.verbose);
     }
 }
 
@@ -91,7 +95,6 @@ struct Generate {
 
 }
 
-
 impl Generate {
     fn exec(self) {
         match self.sub {
@@ -100,50 +103,7 @@ impl Generate {
     }    
 }
 
-
-
 fn main() {
-
     let CargoSubCommand::Generate(args) = CargoSubCommand::parse();
     args.exec();
-
-
-
-
-
-    /*
-
-    if env::args().len() > 2 {
-        let args: Vec<_> = env::args().collect();
-
-
-        cfg
-        .get(&args[2])
-        .into_env(&|s: &String| Path::new(s).exists());
-
-    } else {
-        cfg
-        .get_from_env(&String::from("TARGET"))
-        .into_env(&|s: &String| Path::new(s).exists());
-
-    }
-*/
-
-    //let o = cargo_find_target::dump_environment(&String::from("/home/ivan/workspace/projects/conf_plugin/some.sh")).unwrap();
-
-
-    //for (k, v) in o {
-    //    println!("{}env var: {} -> {}{}{}", color::Fg(color::Magenta), k, color::Fg(color::Yellow), v, color::Reset{}.fg_str())
-    //}
-
-    let cc = env::var("SSS").unwrap();
-
-    let out_dir = env::var_os("OUT_DIR").unwrap();
-    
-    println!("gogadoda3");
-    println!("cargo:warning={} {}", "output dir:", out_dir.into_string().unwrap());
-    println!("cargo:warning={} {}", "SSS:", cc);
-
-    
-    println!("cargo:rerun-if-changed=build.rs");
 }
