@@ -1,5 +1,6 @@
 
 use std::convert::identity;
+use std::fs;
 use std::{collections::BTreeMap, borrow::Cow};
 use std::env::{self, VarError};
 use std::os::unix;
@@ -11,16 +12,16 @@ use serde::{Serialize, Deserialize};
 mod print {
     use termion::color;
 
-    pub fn info(str: String) {
-        println!("{}{}{}", color::Fg(color::Green), str, color::Reset{}.fg_str())
+    pub fn info(header: &str, str: String) {
+        println!("{}{}{} {}", color::Fg(color::LightGreen), header, color::Reset{}.fg_str(), str)
     }
     
-    pub fn warning(str: String) {
-        println!("{}{}{}", color::Fg(color::Yellow), str, color::Reset{}.fg_str())    
+    pub fn warning(header: &str, str: String) {
+        println!("{}{}{} {}", color::Fg(color::LightYellow), header, color::Reset{}.fg_str(), str)    
     }
     
-    pub fn fatal(str: String) {
-        panic!("{}{}{}", color::Fg(color::Red), str, color::Reset{}.fg_str())
+    pub fn fatal(header: &str, str: String) {
+        panic!("{}{}{} {}", color::Fg(color::LightRed), header, color::Reset{}.fg_str(), str)
     }    
 }
 
@@ -114,14 +115,23 @@ impl LinkSource {
     pub fn new(source_type: LinkSourceType, value: String) -> Self {
         LinkSource { source_type: source_type, value: value }
     }
+
+    pub fn rm_and_link<P: AsRef<Path>, Q: AsRef<Path>>(original: P, link: Q) -> std::io::Result<()> {
+        if link.as_ref().exists() {
+            fs::remove_dir_all(link.as_ref()).and_then(|_| unix::fs::symlink(original, link))
+        } else {
+            unix::fs::symlink(original, link)
+        }
+    }
+
     /// link to current working directory
     pub fn link_to<Q: AsRef<Path>>(self, link: Q) -> Result<(String, Q), LinkError> {
         match self.source_type {
-            LinkSourceType::Direct => unix::fs::symlink(&self.value, &link)
+            LinkSourceType::Direct => Self::rm_and_link(&self.value, &link)
                 .map_err(|err| LinkError::IOError(err))
                 .map(|_| (self.value, link)),
             LinkSourceType::Env => match env::var(&self.value) {
-                Ok(o) => unix::fs::symlink(o, &link)
+                Ok(o) => Self::rm_and_link(o, &link)
                     .map_err(|err| LinkError::IOError(err))
                     .map(|_| (self.value, link)),
                 Err(err) => Err(LinkError::VarError(err)),
@@ -186,10 +196,10 @@ impl BuildConfiguration {
             }
             match dump_environment(&String::from(cmd.as_os_str().to_str().unwrap())) {
                 Ok(envmap) => {
-                    print::info(String::from("Env dumped"));
+                    print::info("Env dumped", String::new());
                     merge_environment(envmap)
                 },
-                Err(err) => print::fatal(format!("Env dumping error: {:?}", err)),
+                Err(err) => print::fatal("Env dumping error", format!("{:?}", err)),
             }
         }
         for (k, v) in self.env.into_iter() {
@@ -197,17 +207,17 @@ impl BuildConfiguration {
 
             if verbose {
                 match val {
-                    Some(v) => print::info(format!("Setting env {}={}", k, v)),
-                    None => print::warning(format!("Setting env failed: {} (alternatives: {:?})", k, &v)),
+                    Some(v) => print::info("Setting env", format!("{}={}", k, v)),
+                    None => print::warning("Setting env failed", format!("{} (alternatives: {:?})", k, &v)),
                 }
             }
         }
         for l in self.links.into_iter() {
             match l.clone().link_to(env::current_dir().unwrap().as_path()) {
-                Ok((s, l)) => print::info(format!("Link created {:?} -> {}", l ,s)),
+                Ok((s, l)) => print::info("Link created", format!("{:?} -> {}", l ,s)),
                 Err(err) => match err {
-                    LinkError::IOError(err) => print::warning(format!("Can not create link {:?}: io error: {}", &l, err)),
-                    LinkError::VarError(_) => print::warning(format!("Can not create link {:?}: env var not present", &l)),
+                    LinkError::IOError(err) => print::warning("Can not create link", format!("{:?}: io error: {}", &l, err)),
+                    LinkError::VarError(_) => print::warning("Can not create link", format!("{:?}: env var not present", &l)),
                 },
             }
         }
