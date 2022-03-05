@@ -181,6 +181,7 @@ impl BuildConfigProvider {
         BuildConfigProvider { targets: targets, default: default }
     }
 
+    pub fn get_default(self) -> BuildConfiguration { self.default }
 
     pub fn get(self, target_triple: &String) -> BuildConfiguration {
         match self.targets.into_iter().find(|(k, _)| k == target_triple) {
