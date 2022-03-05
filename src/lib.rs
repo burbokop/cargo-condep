@@ -206,7 +206,7 @@ impl BuildConfiguration {
             match l.clone().link_to(env::current_dir().unwrap().as_path()) {
                 Ok((s, l)) => print::info(format!("Link created {:?} -> {}", l ,s)),
                 Err(err) => match err {
-                    LinkError::IOError(_) => print::warning(format!("Can not create link {:?}: io error", &l)),
+                    LinkError::IOError(err) => print::warning(format!("Can not create link {:?}: io error: {}", &l, err)),
                     LinkError::VarError(_) => print::warning(format!("Can not create link {:?}: env var not present", &l)),
                 },
             }
