@@ -7,3 +7,4 @@ repository = "https://github.com/burbokop/conf_plugin"
 [dependencies]
 serde = { version = "1.0.136", features = ["derive"] }
 regex = "1"
+clap = { version = "3.1.5", features = ["derive"] }

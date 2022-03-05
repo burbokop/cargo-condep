@@ -3,9 +3,33 @@ use std::{collections::BTreeMap, env, path::Path};
 use cargo_find_target::{BuildConfigProvider, BuildConfiguration, ValueAlternatives, LinkSource, EnvStr, LinkSourceType};
 
 
+
+use clap::Parser;
+
+#[derive(Parser, Debug)]
+#[clap(author, version, about, long_about = None)]
+struct Args {
+    #[clap(short, long)]
+    cmd: String,
+
+    #[clap(short, long)]
+    target: String,
+}
+
+
 fn main() {
 
-    //"TARGET"
+    let args = Args::parse();
+
+    if args.cmd == "s" {
+        println!("Hello {} {}!", args.cmd, args.target);
+
+        env_perm::set("GG", "AAAAAAA").unwrap();
+
+        return;
+    }
+
+
 
     for argument in env::args() {
         println!("arg: {}", argument);
