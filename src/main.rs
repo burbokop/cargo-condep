@@ -75,11 +75,13 @@ struct Config {
 impl Config {
     fn exec(self) {
         println!("self.verbose: {}", !&self.hide_log);
-        let cfg = pb_default_config();
-        match self.target {            
-            Some(t) => cfg.get(&t),
-            None => cfg.get_default(),
-        }.into_env(&|s: &String| Path::new(s).exists(), !self.hide_log);
+        let conf_provider = pb_default_config();
+
+        
+        match conf_provider.get_or_default(&self.target) {            
+            Some(c) => c.into_env(&|s: &String| Path::new(s).exists(), !self.hide_log),
+            None => println!("undefined target"),
+        }
     }
 }
 

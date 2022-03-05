@@ -282,16 +282,22 @@ impl BuildConfigProvider {
         BuildConfigProvider { targets: targets, default: default }
     }
 
-    pub fn get_default(self) -> BuildConfiguration { self.default }
-
-    pub fn get(self, target_triple: &String) -> BuildConfiguration {
-        match self.targets.into_iter().find(|(k, _)| k == target_triple) {
-            Some((_, v)) => v,
-            None => self.default,
+    pub fn get_or_default(self, target_triple: &Option<String>) -> Option<BuildConfiguration> {
+        match target_triple {
+            Some(tt) => { 
+                self
+                    .targets
+                    .into_iter()
+                    .find(|(k, _)| k == tt)
+                    .map(|(_, v)| v)
+            },
+            None => Some(self.default),
         }
-    } 
-
-    pub fn get_from_env(self, target_triple_key: &String) -> BuildConfiguration {
-        self.get(&env::var(target_triple_key).map_err(|_| format!("can not find env variable: {}", target_triple_key)).unwrap())
     }
+
+    //pub fn get_from_env(self, target_triple_key: &String) -> BuildConfiguration {
+    //    self
+    //        .get(&env::var(target_triple_key).map_err(|_| format!("can not find env variable: {}", target_triple_key)).unwrap())
+    //        .unwrap_or(self.default)
+    //}
 }
