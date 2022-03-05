@@ -1,6 +1,6 @@
 
 use std::{collections::BTreeMap, env, path::Path};
-use cargo_find_target::{BuildConfigProvider, BuildConfiguration, ValueAlternatives, LinkSource, EnvStr, LinkSourceType};
+use cargo_generate::{BuildConfigProvider, BuildConfiguration, ValueAlternatives, LinkSource, EnvStr, LinkSourceType};
 
 
 

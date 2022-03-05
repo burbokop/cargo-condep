@@ -1,5 +1,5 @@
 [package]
-name = "cargo-find-target"
+name = "cargo-generate"
 version = "0.1.0"
 edition = "2021"
 repository = "https://github.com/burbokop/conf_plugin"
