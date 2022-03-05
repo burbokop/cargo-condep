@@ -70,17 +70,17 @@ struct Config {
     target: Option<String>,
 
     #[clap(long)]
-    verbose: bool
+    hide_log: bool
 }
 
 impl Config {
     fn exec(self) {
-        println!("self.verbose: {}", &self.verbose);
+        println!("self.verbose: {}", !&self.hide_log);
         let cfg = pb_default_config();
         match self.target {            
             Some(t) => cfg.get(&t),
             None => cfg.get_default(),
-        }.into_env(&|s: &String| Path::new(s).exists(), self.verbose);
+        }.into_env(&|s: &String| Path::new(s).exists(), !self.hide_log);
     }
 }
 
