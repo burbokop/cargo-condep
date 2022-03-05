@@ -404,6 +404,7 @@ impl CargoConfigFile {
         CargoConfigFile { content: result }    
     }
     pub fn save<P: AsRef<Path>>(self, path: P) -> std::io::Result<()> {
+        fs::create_dir_all(path.as_ref().parent().unwrap())?;
         let mut file = fs::File::create(path)?;
         file.write_all(self.content.as_bytes())?;
         Ok(())
