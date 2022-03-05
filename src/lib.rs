@@ -138,7 +138,7 @@ impl LinkSource {
             LinkSourceType::Env => match env::var(&self.value) {
                 Ok(o) => Self::link_in_dir(&o, &link)
                     .map_err(|err| LinkError::IOError(err))
-                    .map(|l| -> (String, _) {(self.value, l)}),
+                    .map(|l| (o, l)),
                 Err(err) => Err(LinkError::VarError(err)),
             }
         }
@@ -147,7 +147,7 @@ impl LinkSource {
 
 #[derive(Serialize, Deserialize)]
 pub struct BuildConfiguration {
-    env: BTreeMap<String, ValueAlternatives>,
+    env: Vec<(String, ValueAlternatives)>,
     sources: Vec<EnvStr>,
     links: Vec<LinkSource>
 }
@@ -190,7 +190,7 @@ pub fn merge_environment(top: BTreeMap<String, String>) {
 }
 
 impl BuildConfiguration {
-    pub fn new(env: BTreeMap<String, ValueAlternatives>, sources: Vec<EnvStr>, links: Vec<LinkSource>) -> Self {
+    pub fn new(env: Vec<(String, ValueAlternatives)>, sources: Vec<EnvStr>, links: Vec<LinkSource>) -> Self {
         BuildConfiguration { env: env, sources: sources, links: links }
     }
     pub fn into_env<F: Fn(&String) -> bool>(self, predicate: &F, verbose: bool) {
@@ -207,6 +207,7 @@ impl BuildConfiguration {
                 Err(err) => print::fatal("Env dumping error", format!("{:?}", err)),
             }
         }
+
         for (k, v) in self.env.into_iter() {
             let val = v.setup_env(&k, predicate);
 

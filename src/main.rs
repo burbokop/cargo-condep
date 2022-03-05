@@ -12,25 +12,25 @@ use termion::color;
 fn pb_default_config() -> BuildConfigProvider {
     BuildConfigProvider::new(BTreeMap::from([
         (String::from("armv7-unknown-linux-gnueabi"), BuildConfiguration::new(
-        BTreeMap::from([
+        vec![
             (String::from("CC"), ValueAlternatives::from("$PB_SDK_DIR/usr/bin/arm-obreey-linux-gnueabi-gcc")),
             (String::from("CXX"), ValueAlternatives::from("$PB_SDK_DIR/usr/bin/arm-obreey-linux-gnueabi-g++")),
             (String::from("QMAKE"), ValueAlternatives::from("$TOOLCHAIN_PATH/$TOOLCHAIN_PREFIX/sysroot/ebrmain/bin/qmake")),
             (String::from("QT_INCLUDE_PATH"), ValueAlternatives::from("$TOOLCHAIN_PATH/$TOOLCHAIN_PREFIX/sysroot/ebrmain/include")),
             (String::from("QT_LIBRARY_PATH"), ValueAlternatives::from("$TOOLCHAIN_PATH/$TOOLCHAIN_PREFIX/sysroot/ebrmain/lib")),
             (String::from("LD_LIBRARY_PATH"), ValueAlternatives::from("$QT_LIBRARY_PATH:$LD_LIBRARY_PATH"))
-            ]),
+            ],
         vec![EnvStr::from("$PB_SDK_DIR/../env_set.sh")],
         vec![LinkSource::new(LinkSourceType::Env, String::from("PB_SYSTEM_PATH"))]
         )),
     ]),
 	BuildConfiguration::new(
-    	BTreeMap::from([
+        vec![
         	(String::from("QMAKE"), ValueAlternatives::from("$PB_SDK_DIR/local/qt5/bin/qmake")),
         	(String::from("QT_INCLUDE_PATH"), ValueAlternatives::from("$PB_SDK_DIR/local/qt5/include")),
         	(String::from("QT_LIBRARY_PATH"), ValueAlternatives::from("$PB_SDK_DIR/local/qt5/lib")),
         	(String::from("LD_LIBRARY_PATH"), ValueAlternatives::from("$QT_LIBRARY_PATH:$LD_LIBRARY_PATH"))
-    	]),
+    	],
     	vec![],
     	vec![LinkSource::new(LinkSourceType::Env, String::from("PB_SYSTEM_PATH"))]
     ))
