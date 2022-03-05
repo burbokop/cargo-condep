@@ -34,6 +34,7 @@ enum GenerateSubCommand {
 #[derive(clap::Args)]
 #[clap(author, version, about, long_about = None)]
 struct Config {
+    #[clap(long, parse(from_str))]
     target: Option<String>
 }
 
