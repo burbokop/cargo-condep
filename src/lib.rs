@@ -12,7 +12,7 @@ mod print {
     use termion::color;
 
     pub fn info(str: String) {
-        println!("{}{}{}", color::Fg(color::Red), str, color::Reset{}.fg_str())
+        println!("{}{}{}", color::Fg(color::Green), str, color::Reset{}.fg_str())
     }
     
     pub fn warning(str: String) {
