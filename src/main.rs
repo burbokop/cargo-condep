@@ -4,7 +4,7 @@ use cargo_generate::{BuildConfigProvider, BuildConfiguration, ValueAlternatives,
 
 
 
-use clap::Parser;
+use clap::{Parser, Subcommand};
 use termion::color;
 
 #[derive(Parser, Debug)]
@@ -22,8 +22,19 @@ struct Args {
 #[derive(Parser)]
 #[clap(name = "cargo")]
 #[clap(bin_name = "cargo")]
-enum Cargo {
+enum CargoSubCommand {
     Generate(Generate),
+}
+
+#[derive(clap::Subcommand)]
+enum GenerateSubCommand {
+    Config(Config),
+}
+
+#[derive(clap::Args)]
+#[clap(author, version, about, long_about = None)]
+struct Config {
+    target: Option<String>
 }
 
 #[derive(clap::Args)]
@@ -31,12 +42,25 @@ enum Cargo {
 struct Generate {
     #[clap(long, parse(from_os_str))]
     manifest_path: Option<std::path::PathBuf>,
+
+    #[clap(subcommand)]
+    sub: Option<GenerateSubCommand>
 }
 
 
 
 fn main() {
-    let Cargo::Generate(args) = Cargo::parse();
+    let CargoSubCommand::Generate(args) = CargoSubCommand::parse();
+
+    if let Some(sub) = args.sub {
+        match sub {
+            GenerateSubCommand::Config(config) => {
+                println!("generate config: target={:?}", config.target);
+            },
+        }     
+    } else {
+        println!("no subcommand");
+    }
     println!("{:?}", args.manifest_path);
 
 
