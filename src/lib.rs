@@ -272,7 +272,9 @@ impl BuildConfiguration {
             }
             match dump_environment(&String::from(cmd.as_os_str().to_str().unwrap())) {
                 Ok(envmap) => {
-                    print::info("Env dumped", String::new());
+                    if log_level.print_pretty() {
+                        print::info("Env dumped", String::new());
+                    }
 
                     if log_level.print_verbose() {
                         for (k, v) in &envmap {
@@ -280,8 +282,8 @@ impl BuildConfiguration {
                                 "{}{}{} -> {}{}{}", 
                                 termion::color::Bg(termion::color::Magenta), 
                                 k, 
-                                termion::color::Reset{}.fg_str(),
-                                termion::color::Bg(termion::color::Green),
+                                termion::color::Reset{}.bg_str(),
+                                termion::color::Fg(termion::color::Green),
                                 v, 
                                 termion::color::Reset{}.fg_str()
                             )
