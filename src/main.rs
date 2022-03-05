@@ -18,7 +18,7 @@ fn pb_default_config() -> BuildConfigProvider {
             (String::from("QT_INCLUDE_PATH"), ValueAlternatives::from("$TOOLCHAIN_PATH/$TOOLCHAIN_PREFIX/sysroot/ebrmain/include")),
             (String::from("QT_LIBRARY_PATH"), ValueAlternatives::from("$TOOLCHAIN_PATH/$TOOLCHAIN_PREFIX/sysroot/ebrmain/lib")),
             (String::from("LD_LIBRARY_PATH"), ValueAlternatives::one_str("$QT_LIBRARY_PATH", cargo_generate::VarAction::Append)),
-            (String::from("PATH"), ValueAlternatives::one_str("$TOOLCHAIN_PATH/$TOOLCHAIN_PREFIX/sysroot/ebrmain/bin", cargo_generate::VarAction::Append))
+            (String::from("PATH"), ValueAlternatives::one_str("$PB_SDK_DIR/usr/bin", cargo_generate::VarAction::Append))
             ],
         vec![EnvStr::from("$PB_SDK_DIR/../env_set.sh")],
         vec![LinkSource::new(LinkSourceType::Env, String::from("PB_SYSTEM_PATH"))]
