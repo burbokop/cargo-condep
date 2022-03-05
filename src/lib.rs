@@ -397,12 +397,13 @@ pub struct CargoConfigFile {
 
 impl CargoConfigFile {
     pub fn from_env_pairs(env_pairs: Vec<(String, String)>) -> CargoConfigFile {
-        let mut result: String = String::from("[env]");
+        let mut result: String = String::from("[env]\n\n");
         for (k, v) in env_pairs {
-            result.push_str(format!("{} = {}", k, v).as_str())
+            result.push_str(format!("{} = {}\n", k, v).as_str())
         }
         CargoConfigFile { content: result }    
     }
+
     pub fn save<P: AsRef<Path>>(self, path: P) -> std::io::Result<()> {
         fs::create_dir_all(path.as_ref().parent().unwrap())?;
         let mut file = fs::File::create(path)?;
