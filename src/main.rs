@@ -36,6 +36,13 @@ enum GenerateSubCommand {
 struct Config {
     #[clap(long, parse(from_str))]
     target: Option<String>
+
+}
+
+impl Config {
+    fn exec(self) {
+        println!("generate config: target={:?}", self.target);
+    }
 }
 
 #[derive(clap::Args)]
@@ -45,24 +52,25 @@ struct Generate {
     manifest_path: Option<std::path::PathBuf>,
 
     #[clap(subcommand)]
-    sub: Option<GenerateSubCommand>
+    sub: GenerateSubCommand
+
+}
+
+
+impl Generate {
+    fn exec(self) {
+        match self.sub {
+            GenerateSubCommand::Config(config) => config.exec()
+        }     
+    }    
 }
 
 
 
 fn main() {
     let CargoSubCommand::Generate(args) = CargoSubCommand::parse();
+    args.exec();
 
-    if let Some(sub) = args.sub {
-        match sub {
-            GenerateSubCommand::Config(config) => {
-                println!("generate config: target={:?}", config.target);
-            },
-        }     
-    } else {
-        println!("no subcommand");
-    }
-    println!("{:?}", args.manifest_path);
 
 
     //let args = Args::parse();
