@@ -17,7 +17,8 @@ fn pb_default_config() -> BuildConfigProvider {
             (String::from("QMAKE"), ValueAlternatives::from("$TOOLCHAIN_PATH/$TOOLCHAIN_PREFIX/sysroot/ebrmain/bin/qmake")),
             (String::from("QT_INCLUDE_PATH"), ValueAlternatives::from("$TOOLCHAIN_PATH/$TOOLCHAIN_PREFIX/sysroot/ebrmain/include")),
             (String::from("QT_LIBRARY_PATH"), ValueAlternatives::from("$TOOLCHAIN_PATH/$TOOLCHAIN_PREFIX/sysroot/ebrmain/lib")),
-            (String::from("LD_LIBRARY_PATH"), ValueAlternatives::one_str("$QT_LIBRARY_PATH", cargo_generate::VarAction::Append))
+            (String::from("LD_LIBRARY_PATH"), ValueAlternatives::one_str("$QT_LIBRARY_PATH", cargo_generate::VarAction::Append)),
+            (String::from("PATH"), ValueAlternatives::one_str("$TOOLCHAIN_PATH/$TOOLCHAIN_PREFIX/sysroot/ebrmain/bin", cargo_generate::VarAction::Append))
             ],
         vec![EnvStr::from("$PB_SDK_DIR/../env_set.sh")],
         vec![LinkSource::new(LinkSourceType::Env, String::from("PB_SYSTEM_PATH"))]
@@ -81,7 +82,7 @@ impl Config {
         match conf_provider.get_or_default(&self.target) {            
             Some(c) => {
                 let env_pairs = c.into_env(&|s: &String| Path::new(s).exists(), self.log_level);
-                
+
                 CargoConfigFile::from_env_pairs(env_pairs).save(".cargo/config.toml").unwrap();
             },
             None => println!("undefined target"),
