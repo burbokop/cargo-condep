@@ -1,4 +1,5 @@
 
+use std::collections::LinkedList;
 use std::convert::identity;
 use std::fs;
 use std::io::Write;
@@ -86,8 +87,8 @@ impl VarAction {
             VarAction::Append => {
                 match env::var(&key) {
                     Ok(path) => {
-                        let mut paths = env::split_paths(&path).collect::<Vec<_>>();
-                        paths.push(PathBuf::from(&value));
+                        let mut paths = env::split_paths(&path).collect::<LinkedList<_>>();
+                        paths.push_front(PathBuf::from(&value));
                         match env::join_paths(paths) {
                             Ok(new_path) => Ok((key.clone(), String::from(new_path.to_str().unwrap()))),
                             Err(_) => Err(())
