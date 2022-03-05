@@ -1,6 +1,6 @@
 
 use std::{collections::BTreeMap, path::Path};
-use cargo_generate::{BuildConfigProvider, BuildConfiguration, ValueAlternatives, LinkSource, EnvStr, LinkSourceType};
+use cargo_generate::{BuildConfigProvider, BuildConfiguration, ValueAlternatives, LinkSource, EnvStr, LinkSourceType, LogLevel};
 
 
 
@@ -68,18 +68,18 @@ struct Config {
     #[clap(long, parse(from_str))]
     target: Option<String>,
 
-    #[clap(long)]
-    hide_log: bool
+    #[clap(long, parse(from_str), default_value = "pretty")]
+    log_level: LogLevel,
 }
 
 impl Config {
     fn exec(self) {
-        println!("self.verbose: {}", !&self.hide_log);
         let conf_provider = pb_default_config();
 
-        
+
+
         match conf_provider.get_or_default(&self.target) {            
-            Some(c) => c.into_env(&|s: &String| Path::new(s).exists(), !self.hide_log),
+            Some(c) => c.into_env(&|s: &String| Path::new(s).exists(), self.log_level),
             None => println!("undefined target"),
         }
     }

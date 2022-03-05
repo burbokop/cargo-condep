@@ -155,14 +155,13 @@ impl LinkSource {
     }
 
     pub fn link_in_dir<P: AsRef<Path>, Q: AsRef<Path>>(original: P, link: Q) -> std::io::Result<String> {
-        let ll = link.as_ref().join(original.as_ref().file_name().unwrap());
+        let new_link = link.as_ref().join(original.as_ref().file_name().unwrap());
 
-        println!("ll: {:?}", &ll);
         //if link.as_ref().exists() {
         //    fs::remove_dir_all(link.as_ref()).and_then(|_| unix::fs::symlink(original, link))
         //} else {
-        unix::fs::symlink(original, &ll)
-            .map(|_| String::from(ll.to_str().unwrap()))
+        unix::fs::symlink(original, &new_link)
+            .map(|_| String::from(new_link.to_str().unwrap()))
         
         //}
     }
@@ -227,19 +226,68 @@ pub fn merge_environment(top: BTreeMap<String, String>) {
     }
 }
 
+pub enum LogLevel {
+    Off,
+    Pretty,
+    Verbose
+}
+
+impl From<&str> for LogLevel {
+    fn from(s: &str) -> Self {
+        match s {
+            "off" => LogLevel::Off,
+            "pretty" => LogLevel::Pretty,
+            "verbose" => LogLevel::Verbose,
+            _ => LogLevel::Pretty
+        }
+    }
+}
+
+impl LogLevel {
+    pub fn print_pretty(&self) -> bool {
+        match self {
+            LogLevel::Off => false,
+            LogLevel::Pretty => true,
+            LogLevel::Verbose => true,
+        }
+    }
+    pub fn print_verbose(&self) -> bool {
+        match self {
+            LogLevel::Off => false,
+            LogLevel::Pretty => false,
+            LogLevel::Verbose => true,
+        }
+    }
+}
+
 impl BuildConfiguration {
     pub fn new(env: Vec<(String, ValueAlternatives)>, sources: Vec<EnvStr>, links: Vec<LinkSource>) -> Self {
         BuildConfiguration { env: env, sources: sources, links: links }
     }
-    pub fn into_env<F: Fn(&String) -> bool>(self, predicate: &F, verbose: bool) {
+    pub fn into_env<F: Fn(&String) -> bool>(self, predicate: &F, log_level: LogLevel) {
         for src in self.sources.into_iter() {
             let cmd = src.path().unwrap();
-            if verbose {
+            if log_level.print_pretty() {
                 println!("Dumping env: {:?}", &cmd);
             }
             match dump_environment(&String::from(cmd.as_os_str().to_str().unwrap())) {
                 Ok(envmap) => {
                     print::info("Env dumped", String::new());
+
+                    if log_level.print_verbose() {
+                        for (k, v) in &envmap {
+                            println!(
+                                "{}{}{} -> {}{}{}", 
+                                termion::color::Bg(termion::color::Magenta), 
+                                k, 
+                                termion::color::Reset{}.fg_str(),
+                                termion::color::Bg(termion::color::Green),
+                                v, 
+                                termion::color::Reset{}.fg_str()
+                            )
+                        }
+                    }
+
                     merge_environment(envmap)
                 },
                 Err(err) => print::fatal("Env dumping error", format!("{:?}", err)),
@@ -249,7 +297,7 @@ impl BuildConfiguration {
         for (k, va) in self.env.into_iter() {
             let val = va.setup_env(&k, predicate);
 
-            if verbose {
+            if log_level.print_pretty() {
                 match val {
                     Some(v) => match va.action() {
                         VarAction::Set => print::info("Setting env", format!("{}={}", k, v)),
