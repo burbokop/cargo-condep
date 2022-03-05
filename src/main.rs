@@ -69,7 +69,7 @@ struct Config {
     #[clap(long, parse(from_str))]
     target: Option<String>,
 
-    #[clap(long, takes_value = true)]
+    #[clap(long)]
     verbose: bool
 }
 
