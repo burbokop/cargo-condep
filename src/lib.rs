@@ -116,22 +116,25 @@ impl LinkSource {
         LinkSource { source_type: source_type, value: value }
     }
 
-    pub fn rm_and_link<P: AsRef<Path>, Q: AsRef<Path>>(original: P, link: Q) -> std::io::Result<()> {
-        if link.as_ref().exists() {
-            fs::remove_dir_all(link.as_ref()).and_then(|_| unix::fs::symlink(original, link))
-        } else {
-            unix::fs::symlink(original, link)
-        }
+    pub fn link_in_dir<P: AsRef<Path>, Q: AsRef<Path>>(original: P, link: Q) -> std::io::Result<()> {
+        let ll = link.as_ref().join(original.as_ref().file_name().unwrap());
+
+        println!("ll: {:?}", &ll);
+        //if link.as_ref().exists() {
+        //    fs::remove_dir_all(link.as_ref()).and_then(|_| unix::fs::symlink(original, link))
+        //} else {
+        unix::fs::symlink(original, ll)
+        //}
     }
 
     /// link to current working directory
     pub fn link_to<Q: AsRef<Path>>(self, link: Q) -> Result<(String, Q), LinkError> {
         match self.source_type {
-            LinkSourceType::Direct => Self::rm_and_link(&self.value, &link)
+            LinkSourceType::Direct => Self::link_in_dir(&self.value, &link)
                 .map_err(|err| LinkError::IOError(err))
                 .map(|_| (self.value, link)),
             LinkSourceType::Env => match env::var(&self.value) {
-                Ok(o) => Self::rm_and_link(o, &link)
+                Ok(o) => Self::link_in_dir(o, &link)
                     .map_err(|err| LinkError::IOError(err))
                     .map(|_| (self.value, link)),
                 Err(err) => Err(LinkError::VarError(err)),
