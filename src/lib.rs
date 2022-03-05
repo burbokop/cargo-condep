@@ -93,6 +93,8 @@ impl ValueAlternatives {
         ValueAlternatives { alt: alt, action: action }
     }
 
+    pub fn action(&self) -> &VarAction { &self.action }
+
     pub fn one(alt: EnvStr, action: VarAction) -> Self {
         ValueAlternatives { alt: vec![alt], action: action }
     }
@@ -244,13 +246,16 @@ impl BuildConfiguration {
             }
         }
 
-        for (k, v) in self.env.into_iter() {
-            let val = v.setup_env(&k, predicate);
+        for (k, va) in self.env.into_iter() {
+            let val = va.setup_env(&k, predicate);
 
             if verbose {
                 match val {
-                    Some(v) => print::info("Setting env", format!("{}={}", k, v)),
-                    None => print::warning("Setting env failed", format!("{} (alternatives: {:?})", k, &v)),
+                    Some(v) => match va.action() {
+                        VarAction::Set => print::info("Setting env", format!("{}={}", k, v)),
+                        VarAction::Append => print::info("Adding to env", format!("{}+={}", k, v)),
+                    },
+                    None => print::warning("Setting env failed", format!("{} (alternatives: {:?})", k, &va)),
                 }
             }
         }
