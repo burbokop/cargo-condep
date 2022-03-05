@@ -1,6 +1,7 @@
 
 use std::convert::identity;
 use std::fs;
+use std::io::Write;
 use std::{collections::BTreeMap, borrow::Cow};
 use std::env::{self, VarError, JoinPathsError};
 use std::os::unix;
@@ -79,6 +80,25 @@ impl VarAction {
             } 
         }
     }
+    pub fn convert(&self, key: String, value: String) -> (String, String) {
+        match self {
+            VarAction::Set => (key, value),
+            VarAction::Append => {
+                match env::var(&key) {
+                    Ok(path) => {
+                        let mut paths = env::split_paths(&path).collect::<Vec<_>>();
+                        paths.push(PathBuf::from(&value));
+                        match env::join_paths(paths) {
+                            Ok(new_path) => Ok((key.clone(), String::from(new_path.to_str().unwrap()))),
+                            Err(_) => Err(())
+                        }
+                    },
+                    Err(_) => Err(()),
+                }.unwrap_or((key, value))
+            } 
+        }
+    }
+
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -117,6 +137,14 @@ impl ValueAlternatives {
             .iter().map(|x| x.str().into_owned())
             .find(predicate)
             .map(|v| { self.action.do_action(key, &v); v })
+    }
+
+    pub fn get_env_pair<F: Fn(&String) -> bool>(&self, key: String, predicate: &F) -> Option<(String, String)> {
+        self
+            .alt
+            .iter().map(|x| x.str().into_owned())
+            .find(predicate)
+            .map(|v| self.action.convert(key, v))
     }
 }
 
@@ -264,7 +292,8 @@ impl BuildConfiguration {
     pub fn new(env: Vec<(String, ValueAlternatives)>, sources: Vec<EnvStr>, links: Vec<LinkSource>) -> Self {
         BuildConfiguration { env: env, sources: sources, links: links }
     }
-    pub fn into_env<F: Fn(&String) -> bool>(self, predicate: &F, log_level: LogLevel) {
+
+    pub fn into_env<F: Fn(&String) -> bool>(self, predicate: &F, log_level: LogLevel) -> Vec<(String, String)> {
         for src in self.sources.into_iter() {
             let cmd = src.path().unwrap();
             if log_level.print_pretty() {
@@ -296,20 +325,29 @@ impl BuildConfiguration {
             }
         }
 
-        for (k, va) in self.env.into_iter() {
-            let val = va.setup_env(&k, predicate);
+        self
+            .env
+            .into_iter()
+            .map(|(k, va)|{
+                let val = va.get_env_pair(k.clone(), predicate);
 
-            if log_level.print_pretty() {
-                match val {
-                    Some(v) => match va.action() {
-                        VarAction::Set => print::info("Setting env", format!("{}={}", k, v)),
-                        VarAction::Append => print::info("Adding to env", format!("{}+={}", k, v)),
-                    },
-                    None => print::warning("Setting env failed", format!("{} (alternatives: {:?})", k, &va)),
+                if log_level.print_pretty() {
+                    match &val {
+                        Some(v) => match va.action() {
+                            VarAction::Set => print::info("Setting env", format!("{}={}", v.0, v.1)),
+                            VarAction::Append => print::info("Adding to env", format!("{}+={}", v.0, v.1)),
+                        },
+                        None => print::warning("Setting env failed", format!("{} (alternatives: {:?})", k, &va)),
+                    }
                 }
-            }
-        }
-        for l in self.links.into_iter() {
+                val
+            })
+            .filter_map(identity)
+            .collect()
+    }
+
+    pub fn make_links(&self) {
+        for l in self.links.iter() {
             match l.clone().link_to(env::current_dir().unwrap().as_path()) {
                 Ok((s, l)) => print::info("Link created", format!("{:?} -> {}", l ,s)),
                 Err(err) => match err {
@@ -351,3 +389,24 @@ impl BuildConfigProvider {
     //        .unwrap_or(self.default)
     //}
 }
+
+
+pub struct CargoConfigFile {
+    content: String
+}
+
+impl CargoConfigFile {
+    pub fn from_env_pairs(env_pairs: Vec<(String, String)>) -> CargoConfigFile {
+        let mut result: String = String::from("[env]");
+        for (k, v) in env_pairs {
+            result.push_str(format!("{} = {}", k, v).as_str())
+        }
+        CargoConfigFile { content: result }    
+    }
+    pub fn save<P: AsRef<Path>>(self, path: P) -> std::io::Result<()> {
+        let mut file = fs::File::create(path)?;
+        file.write_all(self.content.as_bytes())?;
+        Ok(())
+    }
+}
+

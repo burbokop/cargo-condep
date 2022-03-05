@@ -1,6 +1,6 @@
 
 use std::{collections::BTreeMap, path::Path};
-use cargo_generate::{BuildConfigProvider, BuildConfiguration, ValueAlternatives, LinkSource, EnvStr, LinkSourceType, LogLevel};
+use cargo_generate::{BuildConfigProvider, BuildConfiguration, ValueAlternatives, LinkSource, EnvStr, LinkSourceType, LogLevel, CargoConfigFile};
 
 
 
@@ -79,7 +79,11 @@ impl Config {
 
 
         match conf_provider.get_or_default(&self.target) {            
-            Some(c) => c.into_env(&|s: &String| Path::new(s).exists(), self.log_level),
+            Some(c) => {
+                let env_pairs = c.into_env(&|s: &String| Path::new(s).exists(), self.log_level);
+                
+                CargoConfigFile::from_env_pairs(env_pairs).save(".cargo/config.toml").unwrap();
+            },
             None => println!("undefined target"),
         }
     }
