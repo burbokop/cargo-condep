@@ -1,14 +1,28 @@
 
-    use std::convert::identity;
-    use std::error::Error;
-    use std::fmt::{format, Display};
-    use std::{collections::BTreeMap, borrow::Cow};
-    use std::env;
-    use std::os::unix;
-    use std::path::{Path, PathBuf};
-    use std::process::Command;
-    use regex::{Regex, Captures};
-    use serde::{Serialize, Deserialize};
+use std::convert::identity;
+use std::{collections::BTreeMap, borrow::Cow};
+use std::env::{self, VarError};
+use std::os::unix;
+use std::path::{Path, PathBuf};
+use std::process::Command;
+use regex::{Regex, Captures};
+use serde::{Serialize, Deserialize};
+
+mod print {
+    use termion::color;
+
+    pub fn info(str: String) {
+        println!("{}{}{}", color::Fg(color::Red), str, color::Reset{}.fg_str())
+    }
+    
+    pub fn warning(str: String) {
+        println!("{}{}{}", color::Fg(color::Yellow), str, color::Reset{}.fg_str())    
+    }
+    
+    pub fn fatal(str: String) {
+        panic!("{}{}{}", color::Fg(color::Red), str, color::Reset{}.fg_str())
+    }    
+}
 
 
 
@@ -50,13 +64,12 @@ impl ValueAlternatives {
         ValueAlternatives { alt: alt }
     }
 
-    pub fn into_env<F: Fn(&String) -> bool>(self, key: &String, predicate: &F) -> bool {
+    pub fn into_env<F: Fn(&String) -> bool>(self, key: &String, predicate: &F) -> Option<String> {
         self
             .alt
             .into_iter().map(|x| x.str().into_owned())
             .find(predicate)
-            .map(|v| env::set_var(key, &v))
-            .is_some()
+            .map(|v| { env::set_var(key, &v); v })
     }
 }
 
@@ -72,16 +85,21 @@ impl From<&str> for ValueAlternatives {
 }
 
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum LinkSourceType {
     Direct,
     Env
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct LinkSource {
     source_type: LinkSourceType,
     value: String 
+}
+
+pub enum LinkError {
+    IOError(std::io::Error),
+    VarError(VarError)
 }
 
 impl LinkSource {
@@ -89,14 +107,16 @@ impl LinkSource {
         LinkSource { source_type: source_type, value: value }
     }
     /// link to current working directory
-    pub fn link_to<Q: AsRef<Path>>(self, link: Q) -> std::io::Result<()> {
+    pub fn link_to<Q: AsRef<Path>>(self, link: Q) -> Result<(String, Q), LinkError> {
         match self.source_type {
-            LinkSourceType::Direct => unix::fs::symlink(self.value, link),
+            LinkSourceType::Direct => unix::fs::symlink(&self.value, &link)
+                .map_err(|err| LinkError::IOError(err))
+                .map(|_| (self.value, link)),
             LinkSourceType::Env => match env::var(&self.value) {
-                Ok(o) => unix::fs::symlink(o, link),
-                Err(_) => {
-                    Ok(println!("cargo:warning=Env var `{}` not found", self.value))
-                },
+                Ok(o) => unix::fs::symlink(o, &link)
+                    .map_err(|err| LinkError::IOError(err))
+                    .map(|_| (self.value, link)),
+                Err(err) => Err(LinkError::VarError(err)),
             }
         }
     }
@@ -153,19 +173,35 @@ impl BuildConfiguration {
     pub fn into_env<F: Fn(&String) -> bool>(self, predicate: &F, verbose: bool) {
         for src in self.sources.into_iter() {
             let cmd = src.path().unwrap();
-            println!("cargo:warning=source: `{:?}`", &cmd);
-            merge_environment(dump_environment(&String::from(cmd
-                .as_os_str()
-                .to_str().unwrap())
-            ).unwrap());
+            if verbose {
+                println!("Dumping env: {:?}", &cmd);
+            }
+            match dump_environment(&String::from(cmd.as_os_str().to_str().unwrap())) {
+                Ok(envmap) => {
+                    print::info(String::from("Env dumped"));
+                    merge_environment(envmap)
+                },
+                Err(err) => print::fatal(format!("Env dumping error: {:?}", err)),
+            }
         }
         for (k, v) in self.env.into_iter() {
-            if !v.into_env(&k, predicate) {
-                println!("cargo:warning=No value alternative exist for key `{}`", k)
+            let val = v.into_env(&k, predicate);
+
+            if verbose {
+                match val {
+                    Some(v) => print::info(format!("Setting env {}={}", k, v)),
+                    None => print::warning(format!("Setting env failed: {}", k)),
+                }
             }
         }
         for l in self.links.into_iter() {
-            l.link_to(env::current_dir().unwrap().as_path()).unwrap()
+            match l.clone().link_to(env::current_dir().unwrap().as_path()) {
+                Ok((s, l)) => print::info(format!("Link created {:?} -> {}", l ,s)),
+                Err(err) => match err {
+                    LinkError::IOError(_) => print::warning(format!("Can not create link {:?}: io error", &l)),
+                    LinkError::VarError(_) => print::warning(format!("Can not create link {:?}: env var not present", &l)),
+                },
+            }
         }
     }
 }
