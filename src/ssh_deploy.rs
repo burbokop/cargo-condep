@@ -44,9 +44,12 @@ impl Deploy for SSHDeploy {
 
             let file_name = src.file_name().unwrap();
 
+            println!("coping: {:?} -> {:?}", src, dst);
+
             let buf = std::fs::read(src)
                 .map_err(|err| DeployError::new_copy_err(Box::new(err)))?;
             
+            println!("buffer.len: {}", buf.len());
 
             {
                 let mut scp = self.session.scp_new(ssh::WRITE,dst)
