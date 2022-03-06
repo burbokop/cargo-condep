@@ -141,7 +141,7 @@ struct Deploy {
     
     #[clap(long, parse(from_str), default_value = "pretty")]
     log_level: LogLevel,
-    #[clap(long, parse(from_str), default_value = "pretty")]
+    #[clap(long, parse(from_str), default_value = "ssh")]
     method: DeployMethod
 }
 
