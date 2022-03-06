@@ -155,7 +155,7 @@ impl Deploy {
         let exe_name = CargoConfigFile::read("Cargo.toml").unwrap().parse_name().unwrap();
 
         let src = DeploySource {
-            execs: vec![std::env::current_dir().unwrap().join(PathBuf::from("target")).join(target).join(exe_name)],
+            execs: vec![std::env::current_dir().unwrap().join(PathBuf::from("target")).join(target).join("release").join(exe_name)],
             libs: vec![],
             config_files: vec![],
             user_files: vec![],
