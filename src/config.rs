@@ -427,7 +427,12 @@ impl CargoConfigFile {
 
         println!("self.contentT: {}", self.content);
 
-        iter.last().map(|cap| String::from(&cap[0]))
+        for i in iter {
+            println!("T.i: {:?}", i);
+        }
+
+        None
+        //iter.last().map(|cap| String::from(&cap[0]))
     }
 
     pub fn parse_name(&self) -> Option<String> {
