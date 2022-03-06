@@ -1,7 +1,7 @@
 
 use std::{io::{Write, Read}};
 
-use crate::deploy::{Deploy, DeployConfig, DeploySource, DeployResult, DeployError, CallRemote};
+use crate::deploy::{Deploy, DeployConfig, DeployResult, DeployError, CallRemote, DeployPaths};
 
 
 
@@ -39,12 +39,14 @@ impl SSHDeploy {
 
 
 impl Deploy for SSHDeploy {
-    fn deploy(&mut self, src: DeploySource, conf: DeployConfig) -> DeployResult<()> {
+    fn deploy(&mut self, src: DeployPaths, conf: DeployConfig) -> DeployResult<DeployPaths> {
         conf.copy_files(src, &mut |src, dst| {
 
-            let file_name = src.file_name().unwrap();
 
-            println!("coping: {:?} -> {:?}", src, dst);
+            let dstdir = if dst.is_file() { dst.parent().unwrap() } else { dst };
+            let file_name = if dst.is_file() { dst.file_name().unwrap() } else { src.file_name().unwrap() };
+
+            println!("coping: {:?} -> {:?}", src, dstdir.join(file_name));
 
             let buf = std::fs::read(src)
                 .map_err(|err| DeployError::new_copy_err(Box::new(err)))?;
@@ -52,7 +54,7 @@ impl Deploy for SSHDeploy {
             println!("buffer.len: {}", buf.len());
 
             {
-                let mut scp = self.session.scp_new(ssh::WRITE,dst)
+                let mut scp = self.session.scp_new(ssh::WRITE,dstdir)
                     .map_err(|err| DeployError::new_copy_err(Box::new(err)))?;
 
                 scp.init()
@@ -65,14 +67,14 @@ impl Deploy for SSHDeploy {
                     .map_err(|err| DeployError::new_copy_err(Box::new(err)))?;
             }
 
-
-            Ok(())
+            Ok(dstdir.join(file_name))
         })
     }
 }
 
 impl CallRemote for SSHDeploy {
     fn call_remote(&mut self, cmd: &[u8]) -> DeployResult<()> {
+        println!("running cmd: {:?}", cmd);
         let mut s = self.session.channel_new().map_err(|err| DeployError::new_copy_err(Box::new(err)))?;
 
         s.open_session().map_err(|err| DeployError::new_copy_err(Box::new(err)))?;

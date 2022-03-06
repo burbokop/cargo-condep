@@ -1,6 +1,6 @@
 
 use std::{collections::BTreeMap, path::{Path, PathBuf}};
-use cargo_generate::{config::{BuildConfigProvider, BuildConfiguration, ValueAlternatives, LinkSource, EnvStr, LinkSourceType, LogLevel, CargoConfigFile, VarAction}, deploy::{DeployConfig, self, Noop, DeploySource}, ssh_deploy::SSHDeploy};
+use cargo_generate::{config::{BuildConfigProvider, BuildConfiguration, ValueAlternatives, LinkSource, EnvStr, LinkSourceType, LogLevel, CargoConfigFile, VarAction}, deploy::{DeployConfig, self, Noop, DeployPaths}, ssh_deploy::SSHDeploy};
 
 
 
@@ -154,7 +154,7 @@ impl Deploy {
         let target = CargoConfigFile::read(".cargo/config.toml").unwrap().parse_default_target().unwrap();
         let exe_name = CargoConfigFile::read("Cargo.toml").unwrap().parse_name().unwrap();
 
-        let src = DeploySource {
+        let src = DeployPaths {
             execs: vec![std::env::current_dir().unwrap().join(PathBuf::from("target")).join(target).join("release").join(exe_name)],
             libs: vec![],
             config_files: vec![],
@@ -165,7 +165,11 @@ impl Deploy {
 
         depl.call_remote(b"mount -o rw,remount /ebrmain").unwrap();
 
-        depl.deploy(src, conf).unwrap()
+        let dst = depl.deploy(src, conf).unwrap();
+
+        for exe in dst.execs {
+            depl.call_remote(format!("chmod +x {:?}", exe).as_bytes()).unwrap();
+        }
     }
 }
 

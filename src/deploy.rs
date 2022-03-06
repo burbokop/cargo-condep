@@ -2,14 +2,14 @@ use std::{path::{Path, PathBuf}, fmt::{Display, Debug}};
 
 
 
-#[derive(Debug)]
-pub struct DeploySource {
+#[derive(Debug, Default)]
+pub struct DeployPaths {
     pub execs: Vec<PathBuf>,
     pub libs: Vec<PathBuf>,
     pub config_files: Vec<PathBuf>,
     pub user_files: Vec<PathBuf>
 }
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct DeployConfig {
     pub execs_path: PathBuf,
     pub libs_path: PathBuf,
@@ -53,19 +53,20 @@ impl DeployError {
 pub type DeployResult<T> = std::result::Result<T, DeployError>;
 
 impl DeployConfig {
-    pub fn copy_files<F>(self, src: DeploySource, f: &mut F) -> DeployResult<()>
+    pub fn copy_files<F>(self, src: DeployPaths, f: &mut F) -> DeployResult<DeployPaths>
     where
-        F: FnMut(&Path, &Path) -> DeployResult<()> {
-            for exe in src.execs { f(exe.as_path(), self.execs_path.as_path())? }
-            for lib in src.libs { f(lib.as_path(), self.libs_path.as_path())? }
-            for cfg in src.config_files { f(cfg.as_path(), self.config_path.as_path())? }
-            for usr in src.user_files { f(usr.as_path(), self.user_path.as_path())? }
-            Ok(())
+        F: FnMut(&Path, &Path) -> DeployResult<PathBuf> {
+            let mut result: DeployPaths = DeployPaths::default();
+            for exe in src.execs { result.execs.push(f(exe.as_path(), self.execs_path.as_path())?) }
+            for lib in src.libs { result.libs.push(f(lib.as_path(), self.libs_path.as_path())?) }
+            for cfg in src.config_files { result.config_files.push(f(cfg.as_path(), self.config_path.as_path())?) }
+            for usr in src.user_files { result.user_files.push(f(usr.as_path(), self.user_path.as_path())?) }
+            Ok(result)
     }
 }
 
 pub trait Deploy {
-    fn deploy(&mut self, src: DeploySource, conf: DeployConfig) -> DeployResult<()>;
+    fn deploy(&mut self, src: DeployPaths, conf: DeployConfig) -> DeployResult<DeployPaths>;
 }
 
 pub trait CallRemote {
@@ -76,7 +77,7 @@ pub trait CallRemote {
 pub struct Noop {}
 
 impl Deploy for Noop {
-    fn deploy(&mut self, _: DeploySource, _: DeployConfig) -> DeployResult<()> {
+    fn deploy(&mut self, _: DeployPaths, _: DeployConfig) -> DeployResult<DeployPaths> {
         unimplemented!()
     }
 }
