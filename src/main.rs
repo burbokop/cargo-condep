@@ -5,6 +5,7 @@ use cargo_generate::{config::{BuildConfigProvider, BuildConfiguration, ValueAlte
 
 
 use clap::Parser;
+use regex::Regex;
 
 
 
@@ -188,6 +189,12 @@ impl Generate {
 }
 
 fn main() {
+
+
+
+
+
+
     let CargoSubCommand::Generate(args) = CargoSubCommand::parse();
     args.exec();
 }
