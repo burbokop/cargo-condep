@@ -384,12 +384,6 @@ impl BuildConfigProvider {
             None => Some(self.default),
         }
     }
-
-    //pub fn get_from_env(self, target_triple_key: &String) -> BuildConfiguration {
-    //    self
-    //        .get(&env::var(target_triple_key).map_err(|_| format!("can not find env variable: {}", target_triple_key)).unwrap())
-    //        .unwrap_or(self.default)
-    //}
 }
 
 
@@ -424,18 +418,12 @@ impl CargoConfigFile {
     pub fn parse_default_target(&self) -> Option<String> {
         let re = Regex::new("target = \"(.+)\"").unwrap();
         let iter = re.captures_iter(self.content.as_str());
-
-        println!("self.contentT: {}", self.content);
-
         iter.last().map(|cap| String::from(&cap[1]))
     }
 
     pub fn parse_name(&self) -> Option<String> {
         let re = Regex::new("name = \"(.+)\"").unwrap();
         let iter = re.captures_iter(self.content.as_str());
-
-        println!("self.contentN: {}", self.content);
-
         iter.last().map(|cap| String::from(&cap[1]))
     }
 

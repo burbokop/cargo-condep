@@ -24,9 +24,6 @@ impl SSHDeploy {
         session.parse_config(None)?;
         println!("connect");
         session.connect()?;
-        
-        println!("{:?}",session.is_server_known());
-        
 
         session.userauth_kbdint(None)?;
 
@@ -74,7 +71,7 @@ impl Deploy for SSHDeploy {
 
 impl CallRemote for SSHDeploy {
     fn call_remote(&mut self, cmd: &[u8]) -> DeployResult<()> {
-        println!("running cmd: {:?}", cmd);
+        println!("running cmd: {:?}", String::from_utf8(Vec::from(cmd)));
         let mut s = self.session.channel_new().map_err(|err| DeployError::new_copy_err(Box::new(err)))?;
 
         s.open_session().map_err(|err| DeployError::new_copy_err(Box::new(err)))?;
