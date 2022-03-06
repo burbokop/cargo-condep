@@ -427,7 +427,7 @@ impl CargoConfigFile {
 impl Add for CargoConfigFile {
     type Output = CargoConfigFile;
     fn add(self, rhs: Self) -> Self::Output {
-        CargoConfigFile { content: self.content + rhs.content.as_str() + "\n\n" }
+        CargoConfigFile { content: self.content + "\n\n" + rhs.content.as_str() }
     }
 }
 

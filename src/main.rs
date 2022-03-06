@@ -87,8 +87,9 @@ impl Config {
                 (
                     self.target.map(|tt| CargoConfigFile::from_build_options(&tt) 
                         + env_pairs.iter().find(|(k, _)| k == "CXX")
-                            .map(|(_, linker)| CargoConfigFile::from_target_options(&tt, linker)).unwrap_or(CargoConfigFile::empty()))
-                            .unwrap_or(CargoConfigFile::empty()) 
+                            .map(|(_, linker)| CargoConfigFile::from_target_options(&tt, linker))
+                            .unwrap_or(CargoConfigFile::empty()))
+                        .unwrap_or(CargoConfigFile::empty()) 
                     + CargoConfigFile::from_env_pairs(&env_pairs)
                 ).save(".cargo/config.toml").unwrap();
             },
