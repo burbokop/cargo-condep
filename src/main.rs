@@ -154,13 +154,14 @@ impl Deploy {
         let target = CargoConfigFile::read(".cargo/config.toml").unwrap().parse_default_target().unwrap();
         let exe_name = CargoConfigFile::read("Cargo.toml").unwrap().parse_name().unwrap();
 
-
         let src = DeploySource {
             execs: vec![std::env::current_dir().unwrap().join(PathBuf::from("target")).join(target).join(exe_name)],
             libs: vec![],
             config_files: vec![],
             user_files: vec![],
         };
+
+        println!("src: {:#?}", src);
 
         depl.call_remote(b"mount -o rw,remount /ebrmain").unwrap();
 
