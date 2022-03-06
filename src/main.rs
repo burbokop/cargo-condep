@@ -161,6 +161,8 @@ impl Deploy {
             user_files: vec![],
         };
 
+        depl.call_remote(b"mount -o rw,remount /ebrmain").unwrap();
+
         depl.deploy(src, conf).unwrap()
     }
 }
