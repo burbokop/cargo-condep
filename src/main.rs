@@ -65,6 +65,15 @@ struct Args {
 #[clap(bin_name = "cargo")]
 enum CargoSubCommand {
     Generate(Generate),
+    SomeAction(SomeAction)
+}
+
+
+#[derive(clap::Args)]
+#[clap(author, version, about, long_about = Some("Generate configuration for specific target"))]
+struct SomeAction {
+    #[clap(long, parse(from_str), default_value = "pretty")]
+    log_level: LogLevel,
 }
 
 #[derive(clap::Subcommand)]
@@ -200,6 +209,9 @@ fn main() {
 
 
 
-    let CargoSubCommand::Generate(args) = CargoSubCommand::parse();
-    args.exec();
+    match CargoSubCommand::parse() {
+        CargoSubCommand::Generate(cmd) => cmd.exec(),
+        CargoSubCommand::SomeAction(_) => println!("some action"),
+    }
+    
 }
