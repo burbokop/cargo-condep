@@ -15,10 +15,14 @@ impl SSHDeploy {
         let mut session = ssh::Session::new()
             .map_err(|()| ssh::Error::Ssh(String::from("can not create ssh session")))?;
 
+        println!("set_host {}", host);
         session.set_host(host)?;
+        println!("set_user {}", user);
         session.set_username(user)?;
 
+        println!("parse_cfg");    
         session.parse_config(None)?;
+        println!("connect");
         session.connect()?;
         
         println!("{:?}",session.is_server_known());
