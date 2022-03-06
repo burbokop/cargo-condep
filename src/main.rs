@@ -83,7 +83,14 @@ impl Config {
             Some(c) => {
                 let env_pairs = c.into_env(&|s: &String| Path::new(s).exists(), self.log_level);
 
-                CargoConfigFile::from_env_pairs(env_pairs).save(".cargo/config.toml").unwrap();
+                
+                (
+                    self.target.map(|tt| CargoConfigFile::from_build_options(&tt) 
+                        + env_pairs.iter().find(|(k, _)| k == "CXX")
+                            .map(|(_, linker)| CargoConfigFile::from_target_options(&tt, linker)).unwrap_or(CargoConfigFile::empty()))
+                            .unwrap_or(CargoConfigFile::empty()) 
+                    + CargoConfigFile::from_env_pairs(&env_pairs)
+                ).save(".cargo/config.toml").unwrap();
             },
             None => println!("undefined target"),
         }

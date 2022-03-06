@@ -3,11 +3,12 @@ use std::collections::LinkedList;
 use std::convert::identity;
 use std::fs;
 use std::io::Write;
+use std::ops::Add;
 use std::{collections::BTreeMap, borrow::Cow};
 use std::env::{self, VarError, JoinPathsError};
 use std::os::unix;
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::process::{Command, Output};
 use regex::{Regex, Captures};
 use serde::{Serialize, Deserialize};
 
@@ -371,7 +372,7 @@ impl BuildConfigProvider {
         BuildConfigProvider { targets: targets, default: default }
     }
 
-    pub fn get_or_default(self, target_triple: &Option<String>) -> Option<BuildConfiguration> {
+    pub fn get_or_default(self, target_triple: &Option<String>) -> Option<(BuildConfiguration)> {
         match target_triple {
             Some(tt) => { 
                 self
@@ -397,7 +398,9 @@ pub struct CargoConfigFile {
 }
 
 impl CargoConfigFile {
-    pub fn from_env_pairs(env_pairs: Vec<(String, String)>) -> CargoConfigFile {
+    pub fn empty() -> CargoConfigFile { CargoConfigFile { content: String::new() } }
+
+    pub fn from_env_pairs(env_pairs: &Vec<(String, String)>) -> CargoConfigFile {
         let mut result: String = String::from("[env]\n\n");
         for (k, v) in env_pairs {
             result.push_str(format!("{} = \"{}\"\n", k, v).as_str())
@@ -405,11 +408,26 @@ impl CargoConfigFile {
         CargoConfigFile { content: result }    
     }
 
+    pub fn from_target_options(target_triple: &String, linker: &String) -> CargoConfigFile {
+        CargoConfigFile { content: format!("[target.{}]\n\nlinker = \"{}\"", target_triple, linker) }
+    }
+
+    pub fn from_build_options(default_target: &String) -> CargoConfigFile {
+        CargoConfigFile { content: format!("[build]\n\ntarget = \"{}\"\njobs = {}", default_target, num_cpus::get()) }
+    }
+
     pub fn save<P: AsRef<Path>>(self, path: P) -> std::io::Result<()> {
         fs::create_dir_all(path.as_ref().parent().unwrap())?;
         let mut file = fs::File::create(path)?;
         file.write_all(self.content.as_bytes())?;
         Ok(())
+    }
+}
+
+impl Add for CargoConfigFile {
+    type Output = CargoConfigFile;
+    fn add(self, rhs: Self) -> Self::Output {
+        CargoConfigFile { content: self.content + rhs.content.as_str() }
     }
 }
 
