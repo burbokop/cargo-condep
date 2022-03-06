@@ -28,7 +28,8 @@ impl SSHDeploy {
         println!("{:?}",session.is_server_known());
         
         session.userauth_publickey_auto(None)?;
-
+        println!("authorized");
+        
         Ok(SSHDeploy{ session: session })
     }
 }
