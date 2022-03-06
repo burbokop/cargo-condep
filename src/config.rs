@@ -424,12 +424,18 @@ impl CargoConfigFile {
     pub fn parse_default_target(&self) -> Option<String> {
         let re = Regex::new("^target = \"(.*)\"").unwrap();
         let iter = re.captures_iter(self.content.as_str());
+
+        println!("self.contentT: {}", self.content);
+
         iter.last().map(|cap| String::from(&cap[0]))
     }
 
     pub fn parse_name(&self) -> Option<String> {
         let re = Regex::new("^name = \"(.*)\"").unwrap();
         let iter = re.captures_iter(self.content.as_str());
+
+        println!("self.contentN: {}", self.content);
+
         iter.last().map(|cap| String::from(&cap[0]))
     }
 
