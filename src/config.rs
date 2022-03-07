@@ -126,7 +126,7 @@ impl ValueAlternatives {
     pub fn into_env<F: Fn(&String) -> bool>(self, key: &String, predicate: &F) -> Option<String> {
         self
             .alt
-            .into_iter().map(|x| x.to_str().into_owned())
+            .into_iter().map(|x| x.to_string())
             .find(predicate)
             .map(|v| { self.action.do_action(key, &v); v })
     }
@@ -134,7 +134,7 @@ impl ValueAlternatives {
     pub fn setup_env<F: Fn(&String) -> bool>(&self, key: &String, predicate: &F) -> Option<String> {
         self
             .alt
-            .iter().map(|x| x.to_str().into_owned())
+            .iter().map(|x| x.to_string())
             .find(predicate)
             .map(|v| { self.action.do_action(key, &v); v })
     }
@@ -142,7 +142,7 @@ impl ValueAlternatives {
     pub fn get_env_pair<F: Fn(&String) -> bool>(&self, key: String, predicate: &F) -> Option<(String, String)> {
         self
             .alt
-            .iter().map(|x| x.to_str().into_owned())
+            .iter().map(|x| x.to_string())
             .find(predicate)
             .map(|v| self.action.convert(key, v))
     }
@@ -385,12 +385,16 @@ impl BuildConfigProvider {
         }
     }
 
-    pub fn to_config_toml(self, target_triple: &Option<String>, log_level: LogLevel) -> Option<toml::Config> {
+    pub fn to_config_toml(self, target_triple: &Option<String>, log_level: LogLevel, alias: BTreeMap<String, String>) -> Option<toml::Config> {
         self.get_or_default(target_triple).map(|cunfiguration| {
             let linker = cunfiguration.linker.clone();
             let link_paths = cunfiguration.link_paths.clone();
     
-            let env_pairs = cunfiguration.to_env(&|s: &String| Path::new(s).exists(), log_level);
+            let env_pairs = cunfiguration.to_env(&|s: &String| {
+                println!("test alternative: {}", s);
+
+                Path::new(s).exists()
+            }, log_level);
                
             println!("links: {:?}", link_paths);
 
@@ -407,6 +411,7 @@ impl BuildConfigProvider {
 
             match target_triple {
                 Some(tgt) => toml::Config {
+                    alias: alias,
                     build: toml::Build::with_target(tgt.clone(), links_array),             
                     target: {
                         let mut table = ::toml::map::Map::new();
@@ -418,6 +423,7 @@ impl BuildConfigProvider {
                     env: BTreeMap::from_iter(env_pairs),
                 },
                 None => toml::Config {
+                    alias: alias,
                     build: toml::Build::empty_target(links_array),
                     target: BTreeMap::new(),
                     env: BTreeMap::from_iter(env_pairs)
@@ -453,6 +459,7 @@ pub mod toml {
 
     #[derive(Serialize, Deserialize, Debug)]
     pub struct Config {
+        pub alias: BTreeMap<String, String>,
         pub build: Build,
         pub env: BTreeMap<String, String>,
         pub target: BTreeMap<String, toml::value::Table>

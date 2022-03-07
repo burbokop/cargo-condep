@@ -96,7 +96,9 @@ impl Config {
     fn exec(self) {
         let conf_provider = pb_default_config();
 
-        match conf_provider.to_config_toml(&self.target, self.log_level) {
+        let alias  = [("deploy".into(), "generate deploy".into())].into();
+
+        match conf_provider.to_config_toml(&self.target, self.log_level, alias) {
             Some(tml) => {
                 std::fs::create_dir_all(".cargo").unwrap();
                 std::fs::write(".cargo/config.toml", toml::to_string_pretty(&tml).unwrap()).unwrap();
