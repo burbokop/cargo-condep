@@ -24,13 +24,13 @@ mod print {
         panic!("{}{}{}{}{} {}", Bold, Fg(LightRed), header, style::Reset{}, Reset{}.fg_str(), str)
     }    
 
-    pub const ADDING_TO_ENV:       &str = " Adding to env";
-    pub const SETTING_TO_ENV:      &str = "   Setting env";
-    pub const ENV_DUMPED:          &str = "    Env dumped";
-    pub const SETTING_ENV_FAILED:  &str = "    Env failed";
-    pub const LINK_CREATED:        &str = "  Link created";
-    pub const CAN_NOT_CREATE_LINK: &str = "   Link failed";
-    pub const ENV_DUMPING_FAILED:  &str = "Dumping failed";
+    pub const ADDING_TO_ENV:       &str = "  Adding env";
+    pub const SETTING_TO_ENV:      &str = " Setting env";
+    pub const ENV_DUMPED:          &str = "  Env dumped";
+    pub const SETTING_ENV_FAILED:  &str = "  Env failed";
+    pub const LINK_CREATED:        &str = "Link created";
+    pub const CAN_NOT_CREATE_LINK: &str = " Link failed";
+    pub const ENV_DUMPING_FAILED:  &str = " Dump failed";
     
 }
 
