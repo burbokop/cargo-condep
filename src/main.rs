@@ -1,6 +1,8 @@
 
 use std::{collections::BTreeMap, path::PathBuf};
-use cargo_generate::{config::{BuildConfigProvider, BuildConfiguration, ValueAlternatives, LinkSource, EnvStr, LinkSourceType, LogLevel, VarAction, self}, deploy::{DeployConfig, self, Noop, DeployPaths}, ssh_deploy::SSHDeploy};
+use cargo_condep::{config::{BuildConfigProvider, BuildConfiguration, ValueAlternatives, LinkSource, EnvStr, LinkSourceType, LogLevel, VarAction, self}, deploy::{DeployConfig, self, Noop, DeployPaths}, ssh_deploy::SSHDeploy};
+
+
 
 use clap::Parser;
 use termion::color::{Fg, Blue, Reset, LightBlue};
@@ -65,7 +67,7 @@ struct Args {
 #[clap(name = "cargo")]
 #[clap(bin_name = "cargo")]
 enum CargoSubCommand {
-    Generate(Generate),
+    Condep(Condep),
     SomeAction(SomeAction)
 }
 
@@ -78,14 +80,14 @@ struct SomeAction {
 }
 
 #[derive(clap::Subcommand)]
-enum GenerateSubCommand {
-    Config(Config),
+enum CondepSubCommand {
+    Config(Configure),
     Deploy(Deploy)
 }
 
 #[derive(clap::Args)]
 #[clap(author, version, about, long_about = Some("Generate configuration for specific target"))]
-struct Config {
+struct Configure {
     #[clap(long, parse(from_str))]
     target: Option<String>,
 
@@ -93,7 +95,7 @@ struct Config {
     log_level: LogLevel,
 }
 
-impl Config {
+impl Configure {
     fn exec(self) {
         let conf_provider = pb_default_config();
 
@@ -188,20 +190,20 @@ impl Deploy {
 
 #[derive(clap::Args)]
 #[clap(author, version, about, long_about = None)]
-struct Generate {
+struct Condep {
     #[clap(long, parse(from_os_str))]
     manifest_path: Option<std::path::PathBuf>,
 
     #[clap(subcommand)]
-    sub: GenerateSubCommand
+    sub: CondepSubCommand
 
 }
 
-impl Generate {
+impl Condep {
     fn exec(self) {
         match self.sub {
-            GenerateSubCommand::Config(config) => config.exec(),
-            GenerateSubCommand::Deploy(deploy) => deploy.exec()
+            CondepSubCommand::Config(config) => config.exec(),
+            CondepSubCommand::Deploy(deploy) => deploy.exec()
         }     
     }    
 }
@@ -209,7 +211,7 @@ impl Generate {
 
 fn main() {
     match CargoSubCommand::parse() {
-        CargoSubCommand::Generate(cmd) => cmd.exec(),
+        CargoSubCommand::Condep(cmd) => cmd.exec(),
         CargoSubCommand::SomeAction(_) => {
             println!("some action");
 
@@ -237,7 +239,7 @@ fn main() {
 
             let doc3: toml::Value = tml.parse().unwrap();
 
-            let mut doc: cargo_generate::config::toml::Config = toml::from_str(tml).unwrap();
+            let mut doc: cargo_condep::config::toml::Config = toml::from_str(tml).unwrap();
 
             doc.set_target_val("armv7-unknown-linux-gnueabi".into(), config::toml::Config::LINKER.into(), "gogadoda".into());
             doc.set_target_val("armv5-unknown-linux-gnueabi".into(), config::toml::Config::LINKER.into(), "gogadoda_v5".into());
