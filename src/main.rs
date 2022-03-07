@@ -39,7 +39,7 @@ fn pb_default_deploy_config() -> DeployConfig {
         execs_path: PathBuf::from("/ebrmain/bin"),
         libs_path: PathBuf::from("/ebrmain/lib"),
         config_path: PathBuf::from("/ebrmain/config"),
-        user_path: PathBuf::from("/mnt/ext1/settings")
+        user_path: PathBuf::from("/mnt/ext1/system")
     }
 }
 
@@ -166,10 +166,12 @@ impl Deploy {
         let conf = pb_default_deploy_config();
         let mut depl = self.method.depl();
 
-        let config_toml: config::toml::Config = toml::from_slice(std::fs::read(".cargo/config.toml").unwrap().as_slice()).unwrap();
-        let cargo_toml: config::toml::Cargo = toml::from_slice(std::fs::read("Cargo.toml").unwrap().as_slice()).unwrap();
+        let cwd = std::env::current_dir().unwrap();
 
-        let target_dir = std::env::current_dir().unwrap().join(PathBuf::from("target"));
+        let config_toml: config::toml::Config = toml::from_slice(std::fs::read(cwd.join(".cargo/config.toml")).unwrap().as_slice()).unwrap();
+        let cargo_toml: config::toml::Cargo = toml::from_slice(std::fs::read(cwd.join("Cargo.toml")).unwrap().as_slice()).unwrap();
+
+        let target_dir = cwd.join(PathBuf::from("target"));
         let exe = match config_toml.build.target {
             Some(tgt) => target_dir.join(tgt),
             None => target_dir,
