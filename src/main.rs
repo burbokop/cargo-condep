@@ -18,7 +18,9 @@ fn pb_default_config() -> BuildConfigProvider {
             (String::from("PATH"), ValueAlternatives::one_str("$PB_SDK_DIR/usr/bin", VarAction::Append))
             ],
         vec![EnvStr::from("$PB_SDK_DIR/../env_set.sh")],
-        vec![LinkSource::new(LinkSourceType::Env, String::from("PB_SYSTEM_PATH"))]
+        vec![LinkSource::new(LinkSourceType::Env, String::from("PB_SYSTEM_PATH"))],
+        Some("$PB_SDK_DIR/usr/bin/arm-obreey-linux-gnueabi-g++".into()),
+        vec!["$TOOLCHAIN_PATH/$TOOLCHAIN_PREFIX/sysroot/usr/local/lib".into()]
         )),
     ]),
 	BuildConfiguration::new(
@@ -29,7 +31,9 @@ fn pb_default_config() -> BuildConfigProvider {
         	(String::from("LD_LIBRARY_PATH"), ValueAlternatives::one_str("$QT_LIBRARY_PATH", VarAction::Append))
     	],
     	vec![],
-    	vec![LinkSource::new(LinkSourceType::Env, String::from("PB_SYSTEM_PATH"))]
+    	vec![LinkSource::new(LinkSourceType::Env, String::from("PB_SYSTEM_PATH"))],
+        None,
+        vec!["$PB_SDK_DIR/usr/local/lib".into()]
     ))
 }
 
@@ -92,30 +96,10 @@ impl Config {
     fn exec(self) {
         let conf_provider = pb_default_config();
 
-        match conf_provider.get_or_default(&self.target) {            
-            Some(c) => {
-                let env_pairs = c.into_env(&|s: &String| Path::new(s).exists(), self.log_level);
-
-
-                let dst_config = match self.target {
-                    Some(tgt) => config::toml::Config {
-                        build: config::toml::Build::from_target(tgt.clone()),             
-                        target: env_pairs
-                            .iter()
-                            .find(|(k, _)| k == "CXX")
-                            .map(|(_, v)| config::toml::Config::target_mono(tgt, config::toml::Config::LINKER.into(), v.clone().into()))
-                            .unwrap_or(BTreeMap::new()),
-                        env: BTreeMap::from_iter(env_pairs),
-                    },
-                    None => config::toml::Config {
-                        build: config::toml::Build::empty_target(),
-                        target: BTreeMap::new(),
-                        env: BTreeMap::from_iter(env_pairs)
-                    },
-                };
-                
+        match conf_provider.to_config_toml(&self.target, self.log_level) {
+            Some(tml) => {
                 std::fs::create_dir_all(".cargo").unwrap();
-                std::fs::write(".cargo/config.toml", toml::to_string_pretty(&dst_config).unwrap()).unwrap();
+                std::fs::write(".cargo/config.toml", toml::to_string_pretty(&tml).unwrap()).unwrap();
             },
             None => println!("undefined target"),
         }

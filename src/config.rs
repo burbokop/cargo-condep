@@ -27,7 +27,7 @@ mod print {
 
 
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct EnvStr {
     str: String
 }
@@ -39,19 +39,20 @@ impl From<&str> for EnvStr {
 }
     
 impl EnvStr {
-    pub fn str(&self) -> Cow<'_, str> {
+    pub fn to_str(&self) -> Cow<'_, str> {
         Regex::new(r"\$[_a-zA-Z][_a-zA-Z0-9]*").unwrap().replace_all(&self.str, |caps: &Captures| -> String {
             match env::var(caps[0][1..].to_string()) {
                 Ok(res) => res,
-                Err(_) => {
-                    println!("cargo:warning=Env var: `{:?}` not present", &caps[0][1..]);
-                    caps[0].to_string()
-                },
+                Err(_) => caps[0].to_string(),
             }
         })
     }
 
-    pub fn path(&self) -> std::io::Result<PathBuf> { std::fs::canonicalize(self.str().into_owned()) }
+    pub fn path(&self) -> std::io::Result<PathBuf> { std::fs::canonicalize(self.to_str().into_owned()) }
+
+    pub fn to_string(&self) -> String {
+        self.to_str().to_string()
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -125,7 +126,7 @@ impl ValueAlternatives {
     pub fn into_env<F: Fn(&String) -> bool>(self, key: &String, predicate: &F) -> Option<String> {
         self
             .alt
-            .into_iter().map(|x| x.str().into_owned())
+            .into_iter().map(|x| x.to_str().into_owned())
             .find(predicate)
             .map(|v| { self.action.do_action(key, &v); v })
     }
@@ -133,7 +134,7 @@ impl ValueAlternatives {
     pub fn setup_env<F: Fn(&String) -> bool>(&self, key: &String, predicate: &F) -> Option<String> {
         self
             .alt
-            .iter().map(|x| x.str().into_owned())
+            .iter().map(|x| x.to_str().into_owned())
             .find(predicate)
             .map(|v| { self.action.do_action(key, &v); v })
     }
@@ -141,7 +142,7 @@ impl ValueAlternatives {
     pub fn get_env_pair<F: Fn(&String) -> bool>(&self, key: String, predicate: &F) -> Option<(String, String)> {
         self
             .alt
-            .iter().map(|x| x.str().into_owned())
+            .iter().map(|x| x.to_str().into_owned())
             .find(predicate)
             .map(|v| self.action.convert(key, v))
     }
@@ -213,7 +214,9 @@ impl LinkSource {
 pub struct BuildConfiguration {
     env: Vec<(String, ValueAlternatives)>,
     sources: Vec<EnvStr>,
-    links: Vec<LinkSource>
+    soft_links: Vec<LinkSource>,
+    linker: Option<EnvStr>,
+    link_paths: Vec<EnvStr>
 }
 
 #[derive(Debug)]
@@ -288,11 +291,11 @@ impl LogLevel {
 }
 
 impl BuildConfiguration {
-    pub fn new(env: Vec<(String, ValueAlternatives)>, sources: Vec<EnvStr>, links: Vec<LinkSource>) -> Self {
-        BuildConfiguration { env: env, sources: sources, links: links }
+    pub fn new(env: Vec<(String, ValueAlternatives)>, sources: Vec<EnvStr>, soft_links: Vec<LinkSource>, linker: Option<EnvStr>, link_paths: Vec<EnvStr>) -> Self {
+        BuildConfiguration { env: env, sources: sources, soft_links: soft_links, linker: linker, link_paths: link_paths }
     }
 
-    pub fn into_env<F: Fn(&String) -> bool>(self, predicate: &F, log_level: LogLevel) -> Vec<(String, String)> {
+    pub fn to_env<F: Fn(&String) -> bool>(self, predicate: &F, log_level: LogLevel) -> Vec<(String, String)> {
         for src in self.sources.into_iter() {
             let cmd = src.path().unwrap();
             if log_level.print_pretty() {
@@ -346,7 +349,7 @@ impl BuildConfiguration {
     }
 
     pub fn make_links(&self) {
-        for l in self.links.iter() {
+        for l in self.soft_links.iter() {
             match l.clone().link_to(env::current_dir().unwrap().as_path()) {
                 Ok((s, l)) => print::info("Link created", format!("{:?} -> {}", l ,s)),
                 Err(err) => match err {
@@ -381,6 +384,46 @@ impl BuildConfigProvider {
             None => Some(self.default),
         }
     }
+
+    pub fn to_config_toml(self, target_triple: &Option<String>, log_level: LogLevel) -> Option<toml::Config> {
+        self.get_or_default(target_triple).map(|cunfiguration| {
+            let linker = cunfiguration.linker.clone();
+            let link_paths = cunfiguration.link_paths.clone();
+    
+            let env_pairs = cunfiguration.to_env(&|s: &String| Path::new(s).exists(), log_level);
+    
+            match target_triple {
+                Some(tgt) => toml::Config {
+                    build: toml::Build::from_target(tgt.clone()),             
+                    target: {
+                        let mut table = ::toml::map::Map::new();
+
+                        if let Some(linker) = linker {
+                            table.insert(toml::Config::LINKER.into(), linker.to_string().into());
+                        }
+
+                        let links_array: ::toml::value::Array = link_paths
+                            .into_iter()
+                            .map(|link| link.to_string().into())
+                            .collect();
+
+                        if links_array.len() > 0 {
+                            table.insert("rustc-link-search".into(), links_array.into());
+                        }
+
+                        BTreeMap::from([(tgt.clone(), table)])
+                    },
+                    env: BTreeMap::from_iter(env_pairs),
+                },
+                None => toml::Config {
+                    build: toml::Build::empty_target(),
+                    target: BTreeMap::new(),
+                    env: BTreeMap::from_iter(env_pairs)
+                },
+            }
+        })
+    }
+
 }
 
 
@@ -411,9 +454,6 @@ pub mod toml {
         pub env: BTreeMap<String, String>,
         pub target: BTreeMap<String, toml::value::Table>
     }
-
-    #[derive(Debug)]
-    pub struct AlreadyExistDifferentTypeError {}
 
     impl Config {
         pub const LINKER: &'static str = "linker";
