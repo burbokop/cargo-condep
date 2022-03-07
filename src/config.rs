@@ -10,27 +10,27 @@ use regex::{Regex, Captures};
 use serde::{Serialize, Deserialize};
 
 mod print {
-    use termion::color;
+    use termion::{color::{self, Reset, Fg, LightGreen, LightYellow, LightRed}, style::{self, Bold}};
 
     pub fn info(header: &str, str: String) {
-        println!("{}{}{} {}", color::Fg(color::LightGreen), header, color::Reset{}.fg_str(), str)
+        println!("{}{}{}{}{} {}", Bold, Fg(LightGreen), header, style::Reset{}, Reset{}.fg_str(), str)
     }
     
     pub fn warning(header: &str, str: String) {
-        println!("{}{}{} {}", color::Fg(color::LightYellow), header, color::Reset{}.fg_str(), str)    
+        println!("{}{}{}{}{} {}", Bold, Fg(LightYellow), header, style::Reset{}, color::Reset{}.fg_str(), str)    
     }
     
     pub fn fatal(header: &str, str: String) {
-        panic!("{}{}{} {}", color::Fg(color::LightRed), header, color::Reset{}.fg_str(), str)
+        panic!("{}{}{}{}{} {}", Bold, Fg(LightRed), header, style::Reset{}, Reset{}.fg_str(), str)
     }    
 
-    pub const ADDING_TO_ENV:       &str = "      Adding to env";
-    pub const SETTING_TO_ENV:      &str = "        Setting env";
-    pub const ENV_DUMPED:          &str = "         Env dumped";
-    pub const SETTING_ENV_FAILED:  &str = " Setting env failed";
-    pub const LINK_CREATED:        &str = "       Link created";
-    pub const CAN_NOT_CREATE_LINK: &str = "Can not create link";
-    pub const ENV_DUMPING_FAILED:  &str = " Env dumping failed";
+    pub const ADDING_TO_ENV:       &str = " Adding to env";
+    pub const SETTING_TO_ENV:      &str = "   Setting env";
+    pub const ENV_DUMPED:          &str = "    Env dumped";
+    pub const SETTING_ENV_FAILED:  &str = "    Env failed";
+    pub const LINK_CREATED:        &str = "  Link created";
+    pub const CAN_NOT_CREATE_LINK: &str = "   Link failed";
+    pub const ENV_DUMPING_FAILED:  &str = "Dumping failed";
     
 }
 
