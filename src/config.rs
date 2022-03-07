@@ -39,6 +39,28 @@ impl From<&str> for EnvStr {
 }
     
 impl EnvStr {
+    /// Converting all $ABC occurances into it's env values
+    /// Examples:
+    /// ```
+    /// std::env::set_var("AAA", "_aaa_");
+    /// std::env::set_var("BBB", "_bbb_");
+    /// std::env::set_var("CCC", "_ccc_");
+    /// use cargo_generate::config::EnvStr;
+    /// {
+    ///     let value: EnvStr = "$AAA".into();
+    ///     assert_eq!(value.to_str(), "_aaa_");
+    /// }
+    /// {
+    ///     let value: EnvStr = "$AAA/some_text/$BBB".into();
+    ///     assert_eq!(value.to_str(), "_aaa_/some_text/_bbb_");
+    /// }
+    /// {
+    ///     let value: EnvStr = "$AAA$BBB$CCC".into();
+    ///     assert_eq!(value.to_str(), "_aaa__bbb__ccc_");
+    /// }
+    /// 
+    /// 
+    /// ```
     pub fn to_str(&self) -> Cow<'_, str> {
         Regex::new(r"\$[_a-zA-Z][_a-zA-Z0-9]*").unwrap().replace_all(&self.str, |caps: &Captures| -> String {
             match env::var(caps[0][1..].to_string()) {
@@ -48,7 +70,7 @@ impl EnvStr {
         })
     }
 
-    pub fn path(&self) -> std::io::Result<PathBuf> { std::fs::canonicalize(self.to_str().into_owned()) }
+    pub fn to_path(&self) -> std::io::Result<PathBuf> { std::fs::canonicalize(self.to_str().into_owned()) }
 
     pub fn to_string(&self) -> String {
         self.to_str().to_string()
@@ -81,7 +103,7 @@ impl VarAction {
         }
     }
     pub fn convert(&self, key: String, value: String) -> (String, String) {
-        match self {
+        let a = match self {
             VarAction::Set => (key, value),
             VarAction::Append => {
                 match env::var(&key) {
@@ -96,7 +118,10 @@ impl VarAction {
                     Err(_) => Err(()),
                 }.unwrap_or((key, value))
             } 
-        }
+        };
+        //env::set_var(val.0, val.1)
+        println!("aaaaaaaa: [ {}, {} ]", a.0, a.1);
+        a
     }
 
 }
@@ -297,7 +322,7 @@ impl BuildConfiguration {
 
     pub fn to_env<F: Fn(&String) -> bool>(self, predicate: &F, log_level: LogLevel) -> Vec<(String, String)> {
         for src in self.sources.into_iter() {
-            let cmd = src.path().unwrap();
+            let cmd = src.to_path().unwrap();
             if log_level.print_pretty() {
                 println!("Dumping env: {:?}", &cmd);
             }
@@ -396,18 +421,10 @@ impl BuildConfigProvider {
                 Path::new(s).exists()
             }, log_level);
                
-            println!("links: {:?}", link_paths);
-
             let links_array: Vec<String> = link_paths
                 .into_iter()
                 .map(|link| ["-L".into(), link.to_string()]).flatten()
                 .collect();
-
-            println!("links array: {:?}", links_array);
-
-            if links_array.len() > 0 {
-                
-            }
 
             match target_triple {
                 Some(tgt) => toml::Config {
