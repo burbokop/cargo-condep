@@ -1,5 +1,5 @@
 
-use std::{collections::BTreeMap, path::{Path, PathBuf}};
+use std::{collections::BTreeMap, path::PathBuf};
 use cargo_generate::{config::{BuildConfigProvider, BuildConfiguration, ValueAlternatives, LinkSource, EnvStr, LinkSourceType, LogLevel, VarAction, self}, deploy::{DeployConfig, self, Noop, DeployPaths}, ssh_deploy::SSHDeploy};
 
 use clap::Parser;

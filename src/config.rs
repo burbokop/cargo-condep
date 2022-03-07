@@ -391,32 +391,34 @@ impl BuildConfigProvider {
             let link_paths = cunfiguration.link_paths.clone();
     
             let env_pairs = cunfiguration.to_env(&|s: &String| Path::new(s).exists(), log_level);
-    
+               
+            println!("links: {:?}", link_paths);
+
+            let links_array: Vec<String> = link_paths
+                .into_iter()
+                .map(|link| ["-L".into(), link.to_string()]).flatten()
+                .collect();
+
+            println!("links array: {:?}", links_array);
+
+            if links_array.len() > 0 {
+                
+            }
+
             match target_triple {
                 Some(tgt) => toml::Config {
-                    build: toml::Build::from_target(tgt.clone()),             
+                    build: toml::Build::with_target(tgt.clone(), links_array),             
                     target: {
                         let mut table = ::toml::map::Map::new();
-
                         if let Some(linker) = linker {
                             table.insert(toml::Config::LINKER.into(), linker.to_string().into());
                         }
-
-                        let links_array: ::toml::value::Array = link_paths
-                            .into_iter()
-                            .map(|link| link.to_string().into())
-                            .collect();
-
-                        if links_array.len() > 0 {
-                            table.insert("rustc-link-search".into(), links_array.into());
-                        }
-
                         BTreeMap::from([(tgt.clone(), table)])
                     },
                     env: BTreeMap::from_iter(env_pairs),
                 },
                 None => toml::Config {
-                    build: toml::Build::empty_target(),
+                    build: toml::Build::empty_target(links_array),
                     target: BTreeMap::new(),
                     env: BTreeMap::from_iter(env_pairs)
                 },
@@ -436,15 +438,16 @@ pub mod toml {
     #[derive(Serialize, Deserialize, Debug)]
     pub struct Build {
         pub jobs: usize,
-        pub target: Option<String>
+        pub target: Option<String>,
+        pub rustflags: Vec<String>
     }
 
     impl Build {
-        pub fn from_target(target: String) -> Self {
-            Build { jobs: num_cpus::get(), target: Some(target) }
+        pub fn with_target(target: String, rustflags: Vec<String>) -> Self {
+            Build { jobs: num_cpus::get(), target: Some(target), rustflags: rustflags }
         }
-        pub fn empty_target() -> Self {
-            Build { jobs: num_cpus::get(), target: None }
+        pub fn empty_target(rustflags: Vec<String>) -> Self {
+            Build { jobs: num_cpus::get(), target: None, rustflags: rustflags }
         }
     }
 
@@ -457,6 +460,7 @@ pub mod toml {
 
     impl Config {
         pub const LINKER: &'static str = "linker";
+        pub const RUSTC_LINK_SEARCH: &'static str = "rustc-link-search";
 
         pub fn target_mono(target: String, key: String, value: toml::Value) -> BTreeMap<String, toml::value::Table> {
             let mut table = toml::map::Map::new();
