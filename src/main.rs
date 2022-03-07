@@ -114,6 +114,7 @@ impl Config {
                     },
                 };
                 
+                std::fs::create_dir_all(".cargo").unwrap();
                 std::fs::write(".cargo/config.toml", toml::to_string_pretty(&dst_config).unwrap()).unwrap();
             },
             None => println!("undefined target"),
