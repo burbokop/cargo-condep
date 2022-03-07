@@ -1,4 +1,4 @@
-# condep - configurate & deploy
+# condep - configure & deploy
 
 `cargo install --git https://github.com/burbokop/cargo-condep.git`
 
