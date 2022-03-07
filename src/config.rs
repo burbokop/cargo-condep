@@ -23,6 +23,15 @@ mod print {
     pub fn fatal(header: &str, str: String) {
         panic!("{}{}{} {}", color::Fg(color::LightRed), header, color::Reset{}.fg_str(), str)
     }    
+
+    pub const ADDING_TO_ENV:       &str = "      Adding to env";
+    pub const SETTING_TO_ENV:      &str = "        Setting env";
+    pub const ENV_DUMPED:          &str = "         Env dumped";
+    pub const SETTING_ENV_FAILED:  &str = " Setting env failed";
+    pub const LINK_CREATED:        &str = "       Link created";
+    pub const CAN_NOT_CREATE_LINK: &str = "Can not create link";
+    pub const ENV_DUMPING_FAILED:  &str = " Env dumping failed";
+    
 }
 
 
@@ -120,7 +129,6 @@ impl VarAction {
             } 
         };
         env::set_var(&a.0, &a.1);
-        println!("aaaaaaaa: [ {}, {} ]", a.0, a.1);
         a
     }
 
@@ -323,13 +331,10 @@ impl BuildConfiguration {
     pub fn to_env<F: Fn(&String) -> bool>(self, predicate: &F, log_level: LogLevel) -> Vec<(String, String)> {
         for src in self.sources.into_iter() {
             let cmd = src.to_path().unwrap();
-            if log_level.print_pretty() {
-                println!("Dumping env: {:?}", &cmd);
-            }
             match dump_environment(&String::from(cmd.as_os_str().to_str().unwrap())) {
                 Ok(envmap) => {
                     if log_level.print_pretty() {
-                        print::info("Env dumped", String::new());
+                        print::info(print::ENV_DUMPED, String::new());
                     }
 
                     if log_level.print_verbose() {
@@ -348,7 +353,7 @@ impl BuildConfiguration {
 
                     merge_environment(envmap)
                 },
-                Err(err) => print::fatal("Env dumping error", format!("{:?}", err)),
+                Err(err) => print::fatal(print::ENV_DUMPING_FAILED, format!("{:?}", err)),
             }
         }
 
@@ -361,10 +366,10 @@ impl BuildConfiguration {
                 if log_level.print_pretty() {
                     match &val {
                         Some(v) => match va.action() {
-                            VarAction::Set => print::info("Setting env", format!("{}={}", v.0, v.1)),
-                            VarAction::Append => print::info("Adding to env", format!("{}+={}", v.0, v.1)),
+                            VarAction::Set => print::info( print::SETTING_TO_ENV, format!("{}={}", v.0, v.1)),
+                            VarAction::Append => print::info(print::ADDING_TO_ENV, format!("{}={}", v.0, v.1)),
                         },
-                        None => print::warning("Setting env failed", format!("{} (alternatives: {:?})", k, &va)),
+                        None => print::warning(print::SETTING_ENV_FAILED, format!("{} (alternatives: {:?})", k, &va)),
                     }
                 }
                 val
@@ -376,10 +381,10 @@ impl BuildConfiguration {
     pub fn make_links(&self) {
         for l in self.soft_links.iter() {
             match l.clone().link_to(env::current_dir().unwrap().as_path()) {
-                Ok((s, l)) => print::info("Link created", format!("{:?} -> {}", l ,s)),
+                Ok((s, l)) => print::info(print::LINK_CREATED, format!("{:?} -> {}", l ,s)),
                 Err(err) => match err {
-                    LinkError::IOError(err) => print::warning("Can not create link", format!("{:?}: io error: {}", &l, err)),
-                    LinkError::VarError(_) => print::warning("Can not create link", format!("{:?}: env var not present", &l)),
+                    LinkError::IOError(err) => print::warning(print::CAN_NOT_CREATE_LINK, format!("{:?}: io error: {}", &l, err)),
+                    LinkError::VarError(_) => print::warning(print::CAN_NOT_CREATE_LINK, format!("{:?}: env var not present", &l)),
                 },
             }
         }
@@ -415,11 +420,7 @@ impl BuildConfigProvider {
             let linker = cunfiguration.linker.clone();
             let link_paths = cunfiguration.link_paths.clone();
     
-            let env_pairs = cunfiguration.to_env(&|s: &String| {
-                println!("test alternative: {}", s);
-
-                Path::new(s).exists()
-            }, log_level);
+            let env_pairs = cunfiguration.to_env(&|s: &String| Path::new(s).exists(), log_level);
                
             let links_array: Vec<String> = link_paths
                 .into_iter()
