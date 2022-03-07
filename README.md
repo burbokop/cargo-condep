@@ -1,1 +1,1 @@
-# conf_plugin
+# condep - configurate & deploy
