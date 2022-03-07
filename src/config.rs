@@ -119,7 +119,7 @@ impl VarAction {
                 }.unwrap_or((key, value))
             } 
         };
-        //env::set_var(val.0, val.1)
+        env::set_var(&a.0, &a.1);
         println!("aaaaaaaa: [ {}, {} ]", a.0, a.1);
         a
     }
