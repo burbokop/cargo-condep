@@ -81,7 +81,7 @@ struct SomeAction {
 
 #[derive(clap::Subcommand)]
 enum CondepSubCommand {
-    Config(Configure),
+    Configure(Configure),
     Deploy(Deploy)
 }
 
@@ -202,8 +202,8 @@ struct Condep {
 impl Condep {
     fn exec(self) {
         match self.sub {
-            CondepSubCommand::Config(config) => config.exec(),
-            CondepSubCommand::Deploy(deploy) => deploy.exec()
+            CondepSubCommand::Configure(cmd) => cmd.exec(),
+            CondepSubCommand::Deploy(cmd) => cmd.exec()
         }     
     }    
 }
