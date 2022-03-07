@@ -445,8 +445,13 @@ pub mod toml {
     } 
 
     #[derive(Serialize, Deserialize, Debug)]
-    pub struct Cargo {
+    pub struct Package {
         pub name: String,
+    }
+
+    #[derive(Serialize, Deserialize, Debug)]
+    pub struct Cargo {
+        pub package: Package,
     }
 }
 

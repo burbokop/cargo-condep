@@ -177,7 +177,7 @@ impl Deploy {
             None => target_dir,
         }
             .join("release")
-            .join(cargo_toml.name);
+            .join(cargo_toml.package.name);
 
         let src = DeployPaths {
             execs: vec![exe],
