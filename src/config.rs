@@ -417,6 +417,8 @@ impl BuildConfigProvider {
 
     pub fn to_config_toml(self, target_triple: &Option<String>, log_level: LogLevel, alias: BTreeMap<String, String>) -> Option<toml::Config> {
         self.get_or_default(target_triple).map(|cunfiguration| {
+            cunfiguration.make_links();
+
             let linker = cunfiguration.linker.clone();
             let link_paths = cunfiguration.link_paths.clone();
     

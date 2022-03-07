@@ -208,12 +208,6 @@ impl Generate {
 
 
 fn main() {
-
-
-
-
-
-
     match CargoSubCommand::parse() {
         CargoSubCommand::Generate(cmd) => cmd.exec(),
         CargoSubCommand::SomeAction(_) => {
