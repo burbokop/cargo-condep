@@ -1,13 +1,9 @@
 
 use std::{collections::BTreeMap, path::{Path, PathBuf}};
-use cargo_generate::{config::{BuildConfigProvider, BuildConfiguration, ValueAlternatives, LinkSource, EnvStr, LinkSourceType, LogLevel, CargoConfigFile, VarAction}, deploy::{DeployConfig, self, Noop, DeployPaths}, ssh_deploy::SSHDeploy};
-
-
+use cargo_generate::{config::{BuildConfigProvider, BuildConfiguration, ValueAlternatives, LinkSource, EnvStr, LinkSourceType, LogLevel, VarAction, self}, deploy::{DeployConfig, self, Noop, DeployPaths}, ssh_deploy::SSHDeploy};
 
 use clap::Parser;
-use regex::Regex;
-
-
+use termion::color::{Fg, Blue, Reset, LightBlue};
 
 fn pb_default_config() -> BuildConfigProvider {
     BuildConfigProvider::new(BTreeMap::from([
@@ -100,15 +96,25 @@ impl Config {
             Some(c) => {
                 let env_pairs = c.into_env(&|s: &String| Path::new(s).exists(), self.log_level);
 
+
+                let dst_config = match self.target {
+                    Some(tgt) => config::toml::Config {
+                        build: config::toml::Build::from_target(tgt.clone()),             
+                        target: env_pairs
+                            .iter()
+                            .find(|(k, _)| k == "CXX")
+                            .map(|(_, v)| config::toml::Config::target_mono(tgt, config::toml::Config::LINKER.into(), v.clone().into()))
+                            .unwrap_or(BTreeMap::new()),
+                        env: BTreeMap::from_iter(env_pairs),
+                    },
+                    None => config::toml::Config {
+                        build: config::toml::Build::empty_target(),
+                        target: BTreeMap::new(),
+                        env: BTreeMap::from_iter(env_pairs)
+                    },
+                };
                 
-                (
-                    self.target.map(|tt| CargoConfigFile::from_build_options(&tt) 
-                        + env_pairs.iter().find(|(k, _)| k == "CXX")
-                            .map(|(_, linker)| CargoConfigFile::from_target_options(&tt, linker))
-                            .unwrap_or(CargoConfigFile::empty()))
-                        .unwrap_or(CargoConfigFile::empty()) 
-                    + CargoConfigFile::from_env_pairs(&env_pairs)
-                ).save(".cargo/config.toml").unwrap();
+                std::fs::write(".cargo/config.toml", toml::to_string_pretty(&dst_config).unwrap()).unwrap();
             },
             None => println!("undefined target"),
         }
@@ -160,11 +166,19 @@ impl Deploy {
         let conf = pb_default_deploy_config();
         let mut depl = self.method.depl();
 
-        let target = CargoConfigFile::read(".cargo/config.toml").unwrap().parse_default_target().unwrap();
-        let exe_name = CargoConfigFile::read("Cargo.toml").unwrap().parse_name().unwrap();
+        let config_toml: config::toml::Config = toml::from_slice(std::fs::read(".cargo/config.toml").unwrap().as_slice()).unwrap();
+        let cargo_toml: config::toml::Cargo = toml::from_slice(std::fs::read("Cargo.toml").unwrap().as_slice()).unwrap();
+
+        let target_dir = std::env::current_dir().unwrap().join(PathBuf::from("target"));
+        let exe = match config_toml.build.target {
+            Some(tgt) => target_dir.join(tgt),
+            None => target_dir,
+        }
+            .join("release")
+            .join(cargo_toml.name);
 
         let src = DeployPaths {
-            execs: vec![std::env::current_dir().unwrap().join(PathBuf::from("target")).join(target).join("release").join(exe_name)],
+            execs: vec![exe],
             libs: vec![],
             config_files: vec![],
             user_files: vec![],
@@ -202,6 +216,7 @@ impl Generate {
     }    
 }
 
+
 fn main() {
 
 
@@ -211,7 +226,46 @@ fn main() {
 
     match CargoSubCommand::parse() {
         CargoSubCommand::Generate(cmd) => cmd.exec(),
-        CargoSubCommand::SomeAction(_) => println!("some action"),
+        CargoSubCommand::SomeAction(_) => {
+            println!("some action");
+
+
+            let tml = r#"
+            
+            [build]
+
+            target = "armv7-unknown-linux-gnueabi"
+            jobs = 6
+            
+            [target.armv7-unknown-linux-gnueabi]
+            
+            linker = "/home/ivan/workspace/SDK-B288/usr/bin/arm-obreey-linux-gnueabi-g++"
+            
+            [env]
+            
+            CC = "/home/ivan/workspace/SDK-B288/usr/bin/arm-obreey-linux-gnueabi-gcc"
+            CXX = "/home/ivan/workspace/SDK-B288/usr/bin/arm-obreey-linux-gnueabi-g++"
+            QT_INCLUDE_PATH = "/home/ivan/workspace/SDK-B288/usr/arm-obreey-linux-gnueabi/sysroot/ebrmain/include"
+            QT_LIBRARY_PATH = "/home/ivan/workspace/SDK-B288/usr/arm-obreey-linux-gnueabi/sysroot/ebrmain/lib"
+            
+            "#;
+
+
+            let doc3: toml::Value = tml.parse().unwrap();
+
+            let mut doc: cargo_generate::config::toml::Config = toml::from_str(tml).unwrap();
+
+            doc.set_target_val("armv7-unknown-linux-gnueabi".into(), config::toml::Config::LINKER.into(), "gogadoda".into());
+            doc.set_target_val("armv5-unknown-linux-gnueabi".into(), config::toml::Config::LINKER.into(), "gogadoda_v5".into());
+
+            println!("doc2: {}{:#?}{}", Fg(Blue), doc, Reset{}.fg_str());
+
+            println!("{}{}{}", Fg(LightBlue), toml::to_string_pretty(&doc).unwrap(), Reset{}.fg_str());
+
+
+            println!("doc3: {:#?}", doc3);
+
+        },
     }
     
 }

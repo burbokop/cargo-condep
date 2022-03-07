@@ -1,9 +1,6 @@
 
 use std::collections::LinkedList;
 use std::convert::identity;
-use std::fs;
-use std::io::Write;
-use std::ops::Add;
 use std::{collections::BTreeMap, borrow::Cow};
 use std::env::{self, VarError};
 use std::os::unix;
@@ -387,58 +384,72 @@ impl BuildConfigProvider {
 }
 
 
-pub struct CargoConfigFile {
-    content: String
-}
 
-impl CargoConfigFile {
-    pub fn empty() -> CargoConfigFile { CargoConfigFile { content: String::new() } }
 
-    pub fn from_env_pairs(env_pairs: &Vec<(String, String)>) -> CargoConfigFile {
-        let mut result: String = String::from("[env]\n\n");
-        for (k, v) in env_pairs {
-            result.push_str(format!("{} = \"{}\"\n", k, v).as_str())
+pub mod toml {
+    use std::collections::BTreeMap;
+    use serde::{Deserialize, Serialize};
+
+    #[derive(Serialize, Deserialize, Debug)]
+    pub struct Build {
+        pub jobs: usize,
+        pub target: Option<String>
+    }
+
+    impl Build {
+        pub fn from_target(target: String) -> Self {
+            Build { jobs: num_cpus::get(), target: Some(target) }
         }
-        CargoConfigFile { content: result }    
+        pub fn empty_target() -> Self {
+            Build { jobs: num_cpus::get(), target: None }
+        }
     }
 
-    pub fn from_target_options(target_triple: &String, linker: &String) -> CargoConfigFile {
-        CargoConfigFile { content: format!("[target.{}]\n\nlinker = \"{}\"", target_triple, linker) }
+    #[derive(Serialize, Deserialize, Debug)]
+    pub struct Config {
+        pub build: Build,
+        pub env: BTreeMap<String, String>,
+        pub target: BTreeMap<String, toml::value::Table>
     }
 
-    pub fn from_build_options(default_target: &String) -> CargoConfigFile {
-        CargoConfigFile { content: format!("[build]\n\ntarget = \"{}\"\njobs = {}", default_target, num_cpus::get()) }
-    }
+    #[derive(Debug)]
+    pub struct AlreadyExistDifferentTypeError {}
 
-    pub fn read<P: AsRef<Path>>(path: P) -> std::io::Result<Self> {
-        fs::read(path)
-            .map(|b| CargoConfigFile { content: String::from_utf8(b).unwrap() })
-    }
+    impl Config {
+        pub const LINKER: &'static str = "linker";
 
-    pub fn parse_default_target(&self) -> Option<String> {
-        let re = Regex::new("target = \"(.+)\"").unwrap();
-        let iter = re.captures_iter(self.content.as_str());
-        iter.last().map(|cap| String::from(&cap[1]))
-    }
+        pub fn target_mono(target: String, key: String, value: toml::Value) -> BTreeMap<String, toml::value::Table> {
+            let mut table = toml::map::Map::new();
+            table.insert(key, value);
+            BTreeMap::from([(target, table)])
+        }
 
-    pub fn parse_name(&self) -> Option<String> {
-        let re = Regex::new("name = \"(.+)\"").unwrap();
-        let iter = re.captures_iter(self.content.as_str());
-        iter.last().map(|cap| String::from(&cap[1]))
-    }
+        /// returns old value
+        pub fn set_target_val(&mut self, target: String, key: String, value: toml::Value) -> Option<toml::Value> {
+            match self
+                    .target
+                    .entry(target)
+                    .or_insert(toml::value::Table::new())
+                    .entry(key) {
+                        toml::map::Entry::Vacant(v) => { v.insert(value); None },
+                        toml::map::Entry::Occupied(o) => { let mut oo = o; Some(oo.insert(value)) },
+                    }
+        }
+        pub fn target_val(&self, target: &str, key: &str) -> Option<&str> {
+            self
+                .target
+                .get(target)
+                .and_then(|table| table.get(key))
+                .and_then(|v| v.as_str())
+        }
+    } 
 
-
-    pub fn save<P: AsRef<Path>>(self, path: P) -> std::io::Result<()> {
-        fs::create_dir_all(path.as_ref().parent().unwrap())?;
-        let mut file = fs::File::create(path)?;
-        file.write_all(self.content.as_bytes())?;
-        Ok(())
+    #[derive(Serialize, Deserialize, Debug)]
+    pub struct Cargo {
+        pub name: String,
     }
 }
 
-impl Add for CargoConfigFile {
-    type Output = CargoConfigFile;
-    fn add(self, rhs: Self) -> Self::Output {
-        CargoConfigFile { content: self.content + "\n\n" + rhs.content.as_str() }
-    }
-}
+
+
+

@@ -11,3 +11,4 @@ clap = { version = "3.1.5", features = ["derive"] }
 termion = "1.5.6"
 num_cpus = "1.13.1"
 ssh = "0.1.4"
+toml = "0.5.8"
