@@ -1,8 +1,8 @@
 [package]
-name = "cargo-generate"
+name = "cargo-condep"
 version = "0.1.0"
 edition = "2021"
-repository = "https://github.com/burbokop/conf_plugin"
+repository = "https://github.com/burbokop/cargo-condep"
 
 [dependencies]
 serde = { version = "1.0.136", features = ["derive"] }
