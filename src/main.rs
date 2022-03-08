@@ -236,9 +236,6 @@ impl Run {
 
             let mut child = std::process::Command::new(&cwd.join(self.delegate.exe))
                 .args(self.delegate.args)
-                //.stdin(std::process::Stdio::piped())
-                //.stdout(std::process::Stdio::piped())
-                //.stderr(std::process::Stdio::piped())        
                 .spawn()
                 .expect("failed to execute child");
 
