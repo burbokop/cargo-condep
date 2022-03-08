@@ -38,7 +38,14 @@ enum ConfigWriteError {
 }
 
 impl Default for ConfigProvider {
-    fn default() -> Self { ConfigProvider { cache_path: "~/.cargo/condep".into() } }
+    fn default() -> Self { 
+        ConfigProvider { 
+            cache_path: dirs::home_dir()
+                .unwrap()
+                .join(".cargo")
+                .join("condep") 
+        } 
+    }
 }
 
 impl ConfigProvider {
