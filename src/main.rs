@@ -113,7 +113,8 @@ impl Configure {
 }
 
 #[derive(clap::Args, Debug)]
-struct Delegate {
+struct RunDelegate {
+    pub exe: String,
     pub args: Vec<String>
 }
 
@@ -121,12 +122,21 @@ struct Delegate {
 #[clap(author, version, about, long_about = Some("Run with configured LD_LIBRARY_PATH"))]
 struct Run {
     #[clap(flatten)]
-    delegate: Delegate,
+    delegate: RunDelegate,
 }
 
 impl Run {
     fn exec(self) {
         println!("args: {:#?}", &self.delegate);
+
+        let cwd = std::env::current_dir().unwrap();
+        let config_toml: config::toml::Config = toml::from_slice(std::fs::read(cwd.join(".cargo/config.toml")).unwrap().as_slice()).unwrap();
+
+        let ldlp_key = "LD_LIBRARY_PATH";
+        config_toml.env.get(ldlp_key).map(|ldlp| {
+            println!("setting {} = {}", ldlp_key, ldlp);
+            std::env::set_var(ldlp_key, ldlp);
+        });
 
         if self.delegate.args.len() > 0 {  
             let mut child = std::process::Command::new(&self.delegate.args[0])
