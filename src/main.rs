@@ -4,7 +4,7 @@ use cargo_condep::{config::{BuildConfigProvider, BuildConfiguration, ValueAltern
 
 
 
-use clap::Parser;
+use clap::{Parser, Command};
 use termion::color::{Fg, Blue, Reset, LightBlue};
 
 fn pb_default_config() -> BuildConfigProvider {
@@ -82,6 +82,7 @@ struct SomeAction {
 #[derive(clap::Subcommand)]
 enum CondepSubCommand {
     Configure(Configure),
+    Run(Run),
     Deploy(Deploy)
 }
 
@@ -108,6 +109,20 @@ impl Configure {
             },
             None => println!("undefined target"),
         }
+    }
+}
+
+#[derive(clap::Args)]
+#[clap(author, version, about, long_about = Some("Run with configured LD_LIBRARY_PATH"))]
+struct Run {
+}
+
+impl Run {
+    fn exec(self) {
+        let args: Vec<_> = std::env::args().collect();
+        println!("args: {:#?}", &args);
+
+        //Command::new("")
     }
 }
 
@@ -203,6 +218,7 @@ impl Condep {
     fn exec(self) {
         match self.sub {
             CondepSubCommand::Configure(cmd) => cmd.exec(),
+            CondepSubCommand::Run(cmd) => cmd.exec(),
             CondepSubCommand::Deploy(cmd) => cmd.exec()
         }     
     }    
@@ -210,9 +226,6 @@ impl Condep {
 
 
 fn main() {
-    let args: Vec<String> = std::env::args().collect();
-    println!("args: {:?}", args);
-
     match CargoSubCommand::parse() {
         CargoSubCommand::Condep(cmd) => cmd.exec(),
         CargoSubCommand::SomeAction(_) => {
