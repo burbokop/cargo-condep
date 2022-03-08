@@ -209,12 +209,28 @@ impl Deploy {
         let cargo_toml: config::toml::Cargo = toml::from_slice(std::fs::read(cwd.join("Cargo.toml")).unwrap().as_slice()).unwrap();
 
         let target_dir = cwd.join(PathBuf::from("target"));
-        let exe = match config_toml.build.target {
+        let current_target_dir = match config_toml.build.target {
             Some(tgt) => target_dir.join(tgt),
             None => target_dir,
-        }
-            .join("release")
-            .join(cargo_toml.package.name);
+        };
+
+        let exe = { 
+            let release = current_target_dir
+                .join("release")
+                .join(&cargo_toml.package.name);
+            if !release.exists() {
+                let debug = current_target_dir
+                    .join("debug")
+                    .join(cargo_toml.package.name);
+                if !debug.exists() {
+                    panic!("neither release nor debug exist. may do `cargo build`")
+                } else {
+                    debug
+                }
+            } else {
+                release
+            }
+        };
 
         let src = DeployPaths {
             execs: vec![exe],
