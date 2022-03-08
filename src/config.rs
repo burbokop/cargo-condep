@@ -253,21 +253,49 @@ pub struct BuildConfiguration {
 }
 
 #[derive(Debug)]
-pub enum DumpEnvError {
+pub enum CommandError {
     IOError(std::io::Error),
     FromUtf8Error(std::string::FromUtf8Error),
     NotImplemented
 }
 
+
+
+pub fn rustc_vv() -> std::result::Result<BTreeMap<String, String>, CommandError> {
+    Command::new("rustc")
+        .arg("-vV")
+        .output()
+        .map_err(|err| CommandError::IOError(err))
+        .and_then(|out| {
+            String::from_utf8(out.stdout)
+                .map_err(|err| CommandError::FromUtf8Error(err))
+                .map(|out| {
+                    out
+                    .split(|c: char| c == '\n')
+                    .skip(1)
+                    .map(|line| { 
+                        let mut splitn_line = line.splitn(2,  |c: char| c == ':');
+                        if let Some(one) = splitn_line.next() {
+                            if let Some(two) = splitn_line.next() {
+                                Some((one.trim().into(), two.trim().into()))
+                            } else { None }
+                        } else { None }
+                    })
+                    .filter_map(identity)
+                    .collect()
+            })
+        })
+}
+
 #[cfg(target_os = "linux")]
-pub fn dump_environment(bash_file: &String) -> Result<BTreeMap<String, String>, DumpEnvError> {
+pub fn dump_environment(bash_file: &String) -> Result<BTreeMap<String, String>, CommandError> {
     Command::new("/bin/bash")
         .arg("-c")
         .arg(format!(". {} && env", bash_file))
         .output()
-        .map_err(|err| DumpEnvError::IOError(err))
+        .map_err(|err| CommandError::IOError(err))
         .and_then(|r| String::from_utf8(r.stdout)
-            .map_err(|err| DumpEnvError::FromUtf8Error(err))
+            .map_err(|err| CommandError::FromUtf8Error(err))
             .map(|out| out
                 .split('\n')
                 .map(|pair| pair.split_once('='))
@@ -445,8 +473,19 @@ impl BuildConfigProvider {
                 None => toml::Config {
                     alias: alias,
                     build: toml::Build::empty_target(links_array),
-                    target: BTreeMap::new(),
-                    env: BTreeMap::from_iter(env_pairs)
+                    target: {
+                        let current_target = rustc_vv()
+                            .unwrap()
+                            .into_iter()
+                            .find(|(k, _)| k == "host")
+                            .unwrap()
+                            .1;
+
+                        let mut table = ::toml::map::Map::new();
+                        table.insert(toml::Config::RUNNER.into(), "cargo condep run".into());
+                        BTreeMap::from([(current_target, table)])
+                    },
+                    env: BTreeMap::from_iter(env_pairs),
                 },
             }
         })
@@ -486,6 +525,7 @@ pub mod toml {
     }
 
     impl Config {
+        pub const RUNNER: &'static str = "runner";
         pub const LINKER: &'static str = "linker";
         pub const RUSTC_LINK_SEARCH: &'static str = "rustc-link-search";
 
