@@ -127,7 +127,6 @@ struct Run {
 
 impl Run {
     fn exec(self) {
-        println!("args: {:#?}", &self.delegate);
 
         let cwd = std::env::current_dir().unwrap();
         let config_toml: config::toml::Config = toml::from_slice(std::fs::read(cwd.join(".cargo/config.toml")).unwrap().as_slice()).unwrap();
@@ -137,9 +136,10 @@ impl Run {
             println!("setting {} = {}", ldlp_key, ldlp);
             std::env::set_var(ldlp_key, ldlp);
         });
+        println!("running: {:?} {:?}", cwd.join(&self.delegate.exe), self.delegate.args);
 
         if self.delegate.args.len() > 0 {  
-            let mut child = std::process::Command::new(&self.delegate.exe)
+            let mut child = std::process::Command::new(&cwd.join(self.delegate.exe))
                 .args(self.delegate.args)
                 .spawn()
                 .expect("failed to execute child");
