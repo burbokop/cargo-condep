@@ -112,33 +112,9 @@ impl Configure {
     }
 }
 
-#[derive(Debug)]
+#[derive(clap::Args, Debug)]
 struct Delegate {
     pub args: Vec<String>
-}
-
-impl clap::Args for Delegate {
-    fn augment_args(cmd: Command<'_>) -> Command<'_> {
-        println!("augment_args: {:?}", cmd);
-        todo!()
-    }
-
-    fn augment_args_for_update(cmd: Command<'_>) -> Command<'_> {
-        println!("augment_args_for_update: {:?}", cmd);
-        todo!()
-    }
-}
-
-impl FromArgMatches for Delegate {
-    fn from_arg_matches(matches: &clap::ArgMatches) -> Result<Self, clap::Error> {
-        println!("from_arg_matches: {:?}", matches);
-        return Ok(Delegate{ args: vec!["a".into(), "b".into(), "c".into()] });
-    }
-
-    fn update_from_arg_matches(&mut self, matches: &clap::ArgMatches) -> Result<(), clap::Error> {
-        println!("update_from_arg_matches: {:?}", matches);
-        return Ok(())
-    }
 }
 
 #[derive(clap::Args)]
