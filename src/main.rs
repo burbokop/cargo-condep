@@ -139,8 +139,8 @@ impl Run {
         });
 
         if self.delegate.args.len() > 0 {  
-            let mut child = std::process::Command::new(&self.delegate.args[0])
-                .args(self.delegate.args.into_iter().skip(1))
+            let mut child = std::process::Command::new(&self.delegate.exe)
+                .args(self.delegate.args)
                 .spawn()
                 .expect("failed to execute child");
 
