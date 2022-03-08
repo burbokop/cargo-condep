@@ -191,9 +191,11 @@ impl Configure {
                     None => println!("undefined target"),
                 }
             },
-            Err(err) => panic!("can not read config {:?}", err),
+            Err(err) => match err {
+                ConfigReadError::IOError(_) => println!("Config not installed: use `cargo condep install`"),
+                _ => println!("Config installed but broken: use `cargo condep install` to reinstall it"),
+            },
         }
-
     }
 }
 
@@ -345,7 +347,9 @@ impl Deploy {
 #[derive(clap::Args)]
 #[clap(author, version, about, long_about = "Install configuration file")]
 struct Install {
+    #[clap(long, parse(from_str))]
     file: Option<PathBuf>,
+    #[clap(long, parse(from_str))]
     url: Option<String>,
     #[clap(long)]
     hardcode: bool,
