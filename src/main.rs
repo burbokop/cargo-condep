@@ -4,7 +4,7 @@ use cargo_condep::{config::{BuildConfigProvider, BuildConfiguration, ValueAltern
 
 
 
-use clap::{Parser, Command, FromArgMatches};
+use clap::Parser;
 use termion::color::{Fg, Blue, Reset, LightBlue};
 
 fn pb_default_config() -> BuildConfigProvider {
@@ -126,9 +126,19 @@ struct Run {
 
 impl Run {
     fn exec(self) {
-        println!("args: {:#?}", self.delegate);
+        println!("args: {:#?}", &self.delegate);
 
-        //Command::new("")
+        if self.delegate.args.len() > 0 {  
+            let mut child = std::process::Command::new(&self.delegate.args[0])
+                .args(self.delegate.args.into_iter().skip(1))
+                .spawn()
+                .expect("failed to execute child");
+
+            let ecode = child.wait()
+                 .expect("failed to wait on child");
+
+            assert!(ecode.success());
+        }
     }
 }
 
