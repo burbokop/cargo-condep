@@ -1,5 +1,7 @@
 use std::{path::{Path, PathBuf}, fmt::{Display, Debug}};
 
+use serde::{Serialize, Deserialize};
+
 
 
 #[derive(Debug, Default)]
@@ -9,7 +11,9 @@ pub struct DeployPaths {
     pub config_files: Vec<PathBuf>,
     pub user_files: Vec<PathBuf>
 }
-#[derive(Debug, Default)]
+
+
+#[derive(Serialize, Deserialize, Debug, Default)]
 pub struct DeployConfig {
     pub execs_path: PathBuf,
     pub libs_path: PathBuf,

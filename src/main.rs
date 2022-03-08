@@ -1,23 +1,90 @@
 
-use std::{collections::BTreeMap, path::PathBuf};
-use cargo_condep::{config::{BuildConfigProvider, BuildConfiguration, ValueAlternatives, LinkSource, EnvStr, LinkSourceType, LogLevel, VarAction, self}, deploy::{DeployConfig, self, Noop, DeployPaths}, ssh_deploy::SSHDeploy};
+use std::{collections::BTreeMap, path::{PathBuf, Path}, string::FromUtf8Error};
+use cargo_condep::{config::{BuildMultitargetConfig, BuildConfiguration, ValueAlternatives, LinkSource, EnvStr, LinkSourceType, LogLevel, VarAction, self, EnvPair}, deploy::{DeployConfig, self, Noop, DeployPaths}, ssh_deploy::{SSHDeploy, SSHUserAndHost}};
 
 
 
 use clap::Parser;
-use termion::color::{Fg, Blue, Reset, LightBlue};
+use termion::color::{Fg, Reset, LightYellow, LightMagenta};
 
-fn pb_default_config() -> BuildConfigProvider {
-    BuildConfigProvider::new(BTreeMap::from([
+
+#[derive(serde::Serialize, serde::Deserialize, Debug)]
+struct SSHDeployConfig {
+    pub paths: DeployConfig,
+    pub ssh: SSHUserAndHost
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Debug)]
+struct WholeConfig {
+    pub config: BuildMultitargetConfig,
+    pub deploy: SSHDeployConfig
+}
+
+struct ConfigProvider {
+    pub cache_path: PathBuf
+}
+
+#[derive(Debug)]
+enum ConfigReadError {
+    IOError(std::io::Error),
+    FromUtf8Error(FromUtf8Error),
+    YamlError(serde_yaml::Error)
+}
+
+#[derive(Debug)]
+enum ConfigWriteError {
+    IOError(std::io::Error),
+    YamlError(serde_yaml::Error)
+}
+
+impl Default for ConfigProvider {
+    fn default() -> Self { ConfigProvider { cache_path: "~/.cargo/condep".into() } }
+}
+
+impl ConfigProvider {
+    pub fn install_from_bytes(&self, bytes: &[u8]) -> std::io::Result<()> {
+        std::fs::create_dir_all(self.cache_path.as_path())
+            .and_then(|()| std::fs::write(self.cache_path.join("config.yaml"), bytes))
+    }
+
+    pub fn install_from_path(&self, path: &Path) -> std::io::Result<()> {
+        std::fs::read(path)
+            .and_then(|bytes| self.install_from_bytes(bytes.as_slice()))
+    }
+
+    pub fn install_from_row_data(&self, row_data: &WholeConfig) -> Result<(), ConfigWriteError> {
+        serde_yaml::to_string(row_data)
+            .map_err(ConfigWriteError::YamlError)
+            .and_then(|str| self.install_from_bytes(str.as_bytes())
+                .map_err(ConfigWriteError::IOError)
+            )
+    }
+
+    pub fn read(&self) -> Result<WholeConfig, ConfigReadError> {
+        std::fs::read(self.cache_path.join("config.yaml"))
+            .map_err(ConfigReadError::IOError)
+            .and_then(|bytes| String::from_utf8(bytes)
+            .map_err(ConfigReadError::FromUtf8Error)
+                .and_then(|str| serde_yaml::from_str(str.as_str())
+                    .map_err(ConfigReadError::YamlError)
+                )
+            )
+    }
+}
+
+
+
+fn pb_default_config() -> BuildMultitargetConfig {
+    BuildMultitargetConfig::new(BTreeMap::from([
         (String::from("armv7-unknown-linux-gnueabi"), BuildConfiguration::new(
         vec![
-            (String::from("CC"), ValueAlternatives::from("$PB_SDK_DIR/usr/bin/arm-obreey-linux-gnueabi-gcc")),
-            (String::from("CXX"), ValueAlternatives::from("$PB_SDK_DIR/usr/bin/arm-obreey-linux-gnueabi-g++")),
-            (String::from("QMAKE"), ValueAlternatives::from("$TOOLCHAIN_PATH/$TOOLCHAIN_PREFIX/sysroot/ebrmain/bin/qmake")),
-            (String::from("QT_INCLUDE_PATH"), ValueAlternatives::from("$TOOLCHAIN_PATH/$TOOLCHAIN_PREFIX/sysroot/ebrmain/include")),
-            (String::from("QT_LIBRARY_PATH"), ValueAlternatives::from("$TOOLCHAIN_PATH/$TOOLCHAIN_PREFIX/sysroot/ebrmain/lib")),
-            (String::from("LD_LIBRARY_PATH"), ValueAlternatives::one_str("$QT_LIBRARY_PATH", VarAction::Append)),
-            (String::from("PATH"), ValueAlternatives::one_str("$PB_SDK_DIR/usr/bin", VarAction::Append))
+            EnvPair { key: "CC".into(), value: ValueAlternatives::from("$PB_SDK_DIR/usr/bin/arm-obreey-linux-gnueabi-gcc") },
+            EnvPair { key: "CXX".into(), value: ValueAlternatives::from("$PB_SDK_DIR/usr/bin/arm-obreey-linux-gnueabi-g++") },
+            EnvPair { key: "QMAKE".into(), value: ValueAlternatives::from("$TOOLCHAIN_PATH/$TOOLCHAIN_PREFIX/sysroot/ebrmain/bin/qmake") },
+            EnvPair { key: "QT_INCLUDE_PATH".into(), value: ValueAlternatives::from("$TOOLCHAIN_PATH/$TOOLCHAIN_PREFIX/sysroot/ebrmain/include") },
+            EnvPair { key: "QT_LIBRARY_PATH".into(), value: ValueAlternatives::from("$TOOLCHAIN_PATH/$TOOLCHAIN_PREFIX/sysroot/ebrmain/lib") },
+            EnvPair { key: "LD_LIBRARY_PATH".into(), value: ValueAlternatives::one_str("$QT_LIBRARY_PATH", VarAction::Append) },
+            EnvPair { key: "PATH".into(), value: ValueAlternatives::one_str("$PB_SDK_DIR/usr/bin", VarAction::Append) }
             ],
         vec![EnvStr::from("$PB_SDK_DIR/../env_set.sh")],
         vec![LinkSource::new(LinkSourceType::Env, String::from("PB_SYSTEM_PATH"))],
@@ -27,11 +94,11 @@ fn pb_default_config() -> BuildConfigProvider {
     ]),
 	BuildConfiguration::new(
         vec![
-        	(String::from("QMAKE"), ValueAlternatives::from("$PB_SDK_DIR/local/qt5/bin/qmake")),
-        	(String::from("QT_INCLUDE_PATH"), ValueAlternatives::from("$PB_SDK_DIR/local/qt5/include")),
-        	(String::from("QT_LIBRARY_PATH"), ValueAlternatives::from("$PB_SDK_DIR/local/qt5/lib")),
-        	(String::from("LD_LIBRARY_PATH"), ValueAlternatives::one_str("$PB_SDK_DIR/usr/local/lib", VarAction::Append)),
-            (String::from("LD_LIBRARY_PATH"), ValueAlternatives::one_str("$QT_LIBRARY_PATH", VarAction::Append))    
+        	EnvPair { key: "QMAKE".into(), value: ValueAlternatives::from("$PB_SDK_DIR/local/qt5/bin/qmake") },
+        	EnvPair { key: "QT_INCLUDE_PATH".into(), value: ValueAlternatives::from("$PB_SDK_DIR/local/qt5/include") },
+        	EnvPair { key: "QT_LIBRARY_PATH".into(), value: ValueAlternatives::from("$PB_SDK_DIR/local/qt5/lib") },
+        	EnvPair { key: "LD_LIBRARY_PATH".into(), value: ValueAlternatives::one_str("$PB_SDK_DIR/usr/local/lib", VarAction::Append) },
+            EnvPair { key: "LD_LIBRARY_PATH".into(), value: ValueAlternatives::one_str("$QT_LIBRARY_PATH", VarAction::Append) }
         ],
     	vec![],
     	vec![LinkSource::new(LinkSourceType::Env, String::from("PB_SYSTEM_PATH"))],
@@ -40,6 +107,12 @@ fn pb_default_config() -> BuildConfigProvider {
     ))
 }
 
+fn pb_default_deploy_ssh_user_host() -> SSHUserAndHost {
+    SSHUserAndHost {
+        user: "root".into(),
+        host: "192.168.205.1".into(),
+    }
+}
 
 fn pb_default_deploy_config() -> DeployConfig {
     DeployConfig {
@@ -48,6 +121,14 @@ fn pb_default_deploy_config() -> DeployConfig {
         config_path: PathBuf::from("/ebrmain/config"),
         user_path: PathBuf::from("/mnt/ext1/system")
     }
+}
+
+fn pb_whole_config() -> WholeConfig {
+    let c = pb_default_config();
+    let d = pb_default_deploy_config();
+    let ssh = pb_default_deploy_ssh_user_host();
+    
+    WholeConfig { config: c, deploy: SSHDeployConfig{ paths: d, ssh: ssh } }
 }
 
 
@@ -83,7 +164,8 @@ struct SomeAction {
 enum CondepSubCommand {
     Configure(Configure),
     Run(Run),
-    Deploy(Deploy)
+    Deploy(Deploy),
+    Install(Install)
 }
 
 #[derive(clap::Args)]
@@ -98,17 +180,20 @@ struct Configure {
 
 impl Configure {
     fn exec(self) {
-        let conf_provider = pb_default_config();
-
         let alias  = [("deploy".into(), "condep deploy".into())].into();
-
-        match conf_provider.to_config_toml(&self.target, self.log_level, alias) {
-            Some(tml) => {
-                std::fs::create_dir_all(".cargo").unwrap();
-                std::fs::write(".cargo/config.toml", toml::to_string_pretty(&tml).unwrap()).unwrap();
+        match ConfigProvider::default().read() {
+            Ok(config) => {
+                match config.config.to_config_toml(&self.target, self.log_level, alias) {
+                    Some(tml) => {
+                        std::fs::create_dir_all(".cargo").unwrap();
+                        std::fs::write(".cargo/config.toml", toml::to_string_pretty(&tml).unwrap()).unwrap();
+                    },
+                    None => println!("undefined target"),
+                }
             },
-            None => println!("undefined target"),
+            Err(err) => panic!("can not read config {:?}", err),
         }
+
     }
 }
 
@@ -171,9 +256,9 @@ where
 
 
 impl DeployMethod {
-    fn depl(&self) -> Box<dyn DeployAndCallRemote> {
+    fn depl(&self, user_host: &SSHUserAndHost) -> Box<dyn DeployAndCallRemote> {
         match self {
-            DeployMethod::SSH => Box::new(SSHDeploy::connect("192.168.205.1", "root").unwrap()),
+            DeployMethod::SSH => Box::new(SSHDeploy::connect(user_host).unwrap()),
             DeployMethod::No => Box::new(Noop{}),
         }
     }
@@ -200,53 +285,86 @@ struct Deploy {
 
 impl Deploy {
     fn exec(self) {
-        let conf = pb_default_deploy_config();
-        let mut depl = self.method.depl();
 
-        let cwd = std::env::current_dir().unwrap();
+        match ConfigProvider::default().read() {
+            Ok(config) => {
+                let mut depl = self.method.depl(&config.deploy.ssh);
+        
+                let cwd = std::env::current_dir().unwrap();
+        
+                let config_toml: config::toml::Config = toml::from_slice(std::fs::read(cwd.join(".cargo/config.toml")).unwrap().as_slice()).unwrap();
+                let cargo_toml: config::toml::Cargo = toml::from_slice(std::fs::read(cwd.join("Cargo.toml")).unwrap().as_slice()).unwrap();
+        
+                let target_dir = cwd.join(PathBuf::from("target"));
+                let current_target_dir = match config_toml.build.target {
+                    Some(tgt) => target_dir.join(tgt),
+                    None => target_dir,
+                };
+        
+                let exe = { 
+                    let release = current_target_dir
+                        .join("release")
+                        .join(&cargo_toml.package.name);
+                    if !release.exists() {
+                        let debug = current_target_dir
+                            .join("debug")
+                            .join(cargo_toml.package.name);
+                        if !debug.exists() {
+                            panic!("neither release nor debug exist. may do `cargo build`")
+                        } else {
+                            debug
+                        }
+                    } else {
+                        release
+                    }
+                };
+        
+                let src = DeployPaths {
+                    execs: vec![exe],
+                    libs: vec![],
+                    config_files: vec![],
+                    user_files: vec![],
+                };
+        
+                println!("src: {:#?}", src);
+        
+                depl.call_remote(b"mount -o rw,remount /ebrmain").unwrap();
+        
+                let dst = depl.deploy(src, config.deploy.paths).unwrap();
+        
+                for exe in dst.execs {
+                    depl.call_remote(format!("chmod +x {:?}", exe).as_bytes()).unwrap();
+                }        
+            },
+            Err(err) => panic!("can not read config {:?}", err)
+        }
+    }
+}
 
-        let config_toml: config::toml::Config = toml::from_slice(std::fs::read(cwd.join(".cargo/config.toml")).unwrap().as_slice()).unwrap();
-        let cargo_toml: config::toml::Cargo = toml::from_slice(std::fs::read(cwd.join("Cargo.toml")).unwrap().as_slice()).unwrap();
 
-        let target_dir = cwd.join(PathBuf::from("target"));
-        let current_target_dir = match config_toml.build.target {
-            Some(tgt) => target_dir.join(tgt),
-            None => target_dir,
-        };
+#[derive(clap::Args)]
+#[clap(author, version, about, long_about = "Install configuration file")]
+struct Install {
+    file: Option<PathBuf>,
+    url: Option<String>,
+    #[clap(long)]
+    hardcode: bool,
+}
 
-        let exe = { 
-            let release = current_target_dir
-                .join("release")
-                .join(&cargo_toml.package.name);
-            if !release.exists() {
-                let debug = current_target_dir
-                    .join("debug")
-                    .join(cargo_toml.package.name);
-                if !debug.exists() {
-                    panic!("neither release nor debug exist. may do `cargo build`")
-                } else {
-                    debug
-                }
-            } else {
-                release
-            }
-        };
-
-        let src = DeployPaths {
-            execs: vec![exe],
-            libs: vec![],
-            config_files: vec![],
-            user_files: vec![],
-        };
-
-        println!("src: {:#?}", src);
-
-        depl.call_remote(b"mount -o rw,remount /ebrmain").unwrap();
-
-        let dst = depl.deploy(src, conf).unwrap();
-
-        for exe in dst.execs {
-            depl.call_remote(format!("chmod +x {:?}", exe).as_bytes()).unwrap();
+impl Install {
+    fn exec(self) {
+        let cfg_provider = ConfigProvider::default();
+        if let Some(file) = self.file {            
+            println!("installing from path: {:?}", file.as_path());
+            cfg_provider.install_from_path(file.as_path())
+                .unwrap()
+        } else if let Some(_) = self.url {
+            panic!("url installation not implemented yet")
+        } else if self.hardcode {
+            println!("installing from hardcode");
+            cfg_provider.install_from_row_data(&pb_whole_config()).unwrap()
+        } else {
+            panic!("specify --file='some/path' or --url='https://some.url'")
         }
     }
 }
@@ -267,7 +385,8 @@ impl Condep {
         match self.sub {
             CondepSubCommand::Configure(cmd) => cmd.exec(),
             CondepSubCommand::Run(cmd) => cmd.exec(),
-            CondepSubCommand::Deploy(cmd) => cmd.exec()
+            CondepSubCommand::Deploy(cmd) => cmd.exec(),
+            CondepSubCommand::Install(cmd) => cmd.exec()
         }     
     }    
 }
@@ -277,44 +396,32 @@ fn main() {
     match CargoSubCommand::parse() {
         CargoSubCommand::Condep(cmd) => cmd.exec(),
         CargoSubCommand::SomeAction(_) => {
-            println!("some action");
 
-
-            let tml = r#"
             
-            [build]
 
-            target = "armv7-unknown-linux-gnueabi"
-            jobs = 6
+            let c = pb_default_config();
+            let d = pb_default_deploy_config();
+            let ssh = pb_default_deploy_ssh_user_host();
             
-            [target.armv7-unknown-linux-gnueabi]
             
-            linker = "/home/ivan/workspace/SDK-B288/usr/bin/arm-obreey-linux-gnueabi-g++"
+
+            //let doc3: toml::Value = tml.parse().unwrap();
+
+            //let mut doc: cargo_condep::config::toml::Config = toml::from_str(tml).unwrap();
+
+            //doc.set_target_val("armv7-unknown-linux-gnueabi".into(), config::toml::Config::LINKER.into(), "gogadoda".into());
+            //doc.set_target_val("armv5-unknown-linux-gnueabi".into(), config::toml::Config::LINKER.into(), "gogadoda_v5".into());
+
+            //println!("doc2: {}{:#?}{}", Fg(Blue), doc, Reset{}.fg_str());
             
-            [env]
+
+            let c_yaml = serde_yaml::to_string(&WholeConfig { config: c, deploy: SSHDeployConfig{ paths: d, ssh: ssh } }).unwrap();
+
+            println!("{}{}{}", Fg(LightYellow), c_yaml, Reset{}.fg_str());
+
+            println!("{}{:#?}{}", Fg(LightMagenta), serde_yaml::from_str::<WholeConfig>(c_yaml.as_str()).unwrap(), Reset{}.fg_str());
+
             
-            CC = "/home/ivan/workspace/SDK-B288/usr/bin/arm-obreey-linux-gnueabi-gcc"
-            CXX = "/home/ivan/workspace/SDK-B288/usr/bin/arm-obreey-linux-gnueabi-g++"
-            QT_INCLUDE_PATH = "/home/ivan/workspace/SDK-B288/usr/arm-obreey-linux-gnueabi/sysroot/ebrmain/include"
-            QT_LIBRARY_PATH = "/home/ivan/workspace/SDK-B288/usr/arm-obreey-linux-gnueabi/sysroot/ebrmain/lib"
-            
-            "#;
-
-
-            let doc3: toml::Value = tml.parse().unwrap();
-
-            let mut doc: cargo_condep::config::toml::Config = toml::from_str(tml).unwrap();
-
-            doc.set_target_val("armv7-unknown-linux-gnueabi".into(), config::toml::Config::LINKER.into(), "gogadoda".into());
-            doc.set_target_val("armv5-unknown-linux-gnueabi".into(), config::toml::Config::LINKER.into(), "gogadoda_v5".into());
-
-            println!("doc2: {}{:#?}{}", Fg(Blue), doc, Reset{}.fg_str());
-
-            println!("{}{}{}", Fg(LightBlue), toml::to_string_pretty(&doc).unwrap(), Reset{}.fg_str());
-
-
-            println!("doc3: {:#?}", doc3);
-
         },
     }
     

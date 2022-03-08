@@ -1,6 +1,7 @@
 
 use std::collections::LinkedList;
 use std::convert::identity;
+use std::fmt;
 use std::{collections::BTreeMap, borrow::Cow};
 use std::env::{self, VarError};
 use std::os::unix;
@@ -36,7 +37,7 @@ mod print {
 
 
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub struct EnvStr {
     str: String
 }
@@ -46,6 +47,31 @@ impl From<String> for EnvStr {
 impl From<&str> for EnvStr {
     fn from(s: &str) -> Self { EnvStr { str: String::from(s) } }
 }
+
+impl Serialize for EnvStr {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer {
+        serializer.serialize_str(self.str.as_str())
+    }
+}
+
+pub struct EnvStrVisitor {}
+
+impl<'de> serde::de::Visitor<'de> for EnvStrVisitor {
+    type Value = EnvStr;
+    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result { write!(formatter, "a string") }
+    fn visit_str<E: serde::de::Error>(self, s: &str) -> Result<Self::Value, E> { Ok(s.to_owned().into()) }
+}
+
+impl<'de> Deserialize<'de> for EnvStr {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de> {
+        deserializer.deserialize_string(EnvStrVisitor{})
+    }
+}
+
     
 impl EnvStr {
     /// Converting all $ABC occurances into it's env values
@@ -136,29 +162,30 @@ impl VarAction {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct ValueAlternatives {
-    alt: Vec<EnvStr>,
+    alternatives: Vec<EnvStr>,
     action: VarAction
 }
 
 
+
 impl ValueAlternatives {
-    pub fn new(alt: Vec<EnvStr>, action: VarAction) -> Self {
-        ValueAlternatives { alt: alt, action: action }
+    pub fn new(alts: Vec<EnvStr>, action: VarAction) -> Self {
+        ValueAlternatives { alternatives: alts, action: action }
     }
 
     pub fn action(&self) -> &VarAction { &self.action }
 
     pub fn one(alt: EnvStr, action: VarAction) -> Self {
-        ValueAlternatives { alt: vec![alt], action: action }
+        ValueAlternatives { alternatives: vec![alt], action: action }
     }
 
     pub fn one_str(alt: &str, action: VarAction) -> Self {
-        ValueAlternatives { alt: vec![EnvStr::from(alt)], action: action }
+        ValueAlternatives { alternatives: vec![EnvStr::from(alt)], action: action }
     }
 
     pub fn into_env<F: Fn(&String) -> bool>(self, key: &String, predicate: &F) -> Option<String> {
         self
-            .alt
+            .alternatives
             .into_iter().map(|x| x.to_string())
             .find(predicate)
             .map(|v| { self.action.do_action(key, &v); v })
@@ -166,7 +193,7 @@ impl ValueAlternatives {
 
     pub fn setup_env<F: Fn(&String) -> bool>(&self, key: &String, predicate: &F) -> Option<String> {
         self
-            .alt
+            .alternatives
             .iter().map(|x| x.to_string())
             .find(predicate)
             .map(|v| { self.action.do_action(key, &v); v })
@@ -174,7 +201,7 @@ impl ValueAlternatives {
 
     pub fn get_env_pair<F: Fn(&String) -> bool>(&self, key: String, predicate: &F) -> Option<(String, String)> {
         self
-            .alt
+            .alternatives
             .iter().map(|x| x.to_string())
             .find(predicate)
             .map(|v| self.action.convert(key, v))
@@ -243,9 +270,15 @@ impl LinkSource {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
+pub struct EnvPair {
+    pub key: String,
+    pub value: ValueAlternatives
+}
+
+#[derive(Serialize, Deserialize, Debug)]
 pub struct BuildConfiguration {
-    env: Vec<(String, ValueAlternatives)>,
+    env: Vec<EnvPair>,
     sources: Vec<EnvStr>,
     soft_links: Vec<LinkSource>,
     linker: Option<EnvStr>,
@@ -352,7 +385,7 @@ impl LogLevel {
 }
 
 impl BuildConfiguration {
-    pub fn new(env: Vec<(String, ValueAlternatives)>, sources: Vec<EnvStr>, soft_links: Vec<LinkSource>, linker: Option<EnvStr>, link_paths: Vec<EnvStr>) -> Self {
+    pub fn new(env: Vec<EnvPair>, sources: Vec<EnvStr>, soft_links: Vec<LinkSource>, linker: Option<EnvStr>, link_paths: Vec<EnvStr>) -> Self {
         BuildConfiguration { env: env, sources: sources, soft_links: soft_links, linker: linker, link_paths: link_paths }
     }
 
@@ -388,16 +421,16 @@ impl BuildConfiguration {
         self
             .env
             .into_iter()
-            .map(|(k, va)|{
-                let val = va.get_env_pair(k.clone(), predicate);
+            .map(|env_pair|{
+                let val = env_pair.value.get_env_pair(env_pair.key.clone(), predicate);
 
                 if log_level.print_pretty() {
                     match &val {
-                        Some(v) => match va.action() {
+                        Some(v) => match env_pair.value.action() {
                             VarAction::Set => print::info( print::SETTING_TO_ENV, format!("{}={}", v.0, v.1)),
                             VarAction::Append => print::info(print::ADDING_TO_ENV, format!("{}={}", v.0, v.1)),
                         },
-                        None => print::warning(print::SETTING_ENV_FAILED, format!("{} (alternatives: {:?})", k, &va)),
+                        None => print::warning(print::SETTING_ENV_FAILED, format!("{} (alternatives: {:?})", env_pair.key, &env_pair.value)),
                     }
                 }
                 val
@@ -419,15 +452,15 @@ impl BuildConfiguration {
     }
 }
 
-#[derive(Serialize, Deserialize)]
-pub struct BuildConfigProvider {
+#[derive(Serialize, Deserialize, Debug)]
+pub struct BuildMultitargetConfig {
     targets: BTreeMap<String, BuildConfiguration>,
     default: BuildConfiguration
 }
 
-impl BuildConfigProvider {
+impl BuildMultitargetConfig {
     pub fn new(targets: BTreeMap<String, BuildConfiguration>, default: BuildConfiguration) -> Self {
-        BuildConfigProvider { targets: targets, default: default }
+        BuildMultitargetConfig { targets: targets, default: default }
     }
 
     pub fn get_or_default(self, target_triple: &Option<String>) -> Option<BuildConfiguration> {
