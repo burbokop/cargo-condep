@@ -100,7 +100,7 @@ impl Configure {
     fn exec(self) {
         let conf_provider = pb_default_config();
 
-        let alias  = [("deploy".into(), "generate deploy".into())].into();
+        let alias  = [("deploy".into(), "condep deploy".into())].into();
 
         match conf_provider.to_config_toml(&self.target, self.log_level, alias) {
             Some(tml) => {
