@@ -138,7 +138,7 @@ impl Run {
         });
         println!("running: {:?} {:?}", cwd.join(&self.delegate.exe), self.delegate.args);
 
-        if self.delegate.args.len() > 0 {  
+        if !self.delegate.exe.is_empty() {  
 
             let mut child = std::process::Command::new(&cwd.join(self.delegate.exe))
                 .args(self.delegate.args)
@@ -152,6 +152,8 @@ impl Run {
                  .expect("failed to wait on child");
 
             assert!(ecode.success());
+        } else {
+            panic!("exe is empty")
         }
     }
 }
