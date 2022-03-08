@@ -210,6 +210,9 @@ impl Condep {
 
 
 fn main() {
+    let args: Vec<String> = std::env::args().collect();
+    println!("args: {:?}", args);
+
     match CargoSubCommand::parse() {
         CargoSubCommand::Condep(cmd) => cmd.exec(),
         CargoSubCommand::SomeAction(_) => {
