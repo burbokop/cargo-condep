@@ -239,11 +239,13 @@ impl Run {
                 .spawn()
                 .unwrap();
 
-            let ecode = child
+            let exit_status = child
                 .wait()
                 .unwrap();
 
-            assert!(ecode.success());
+            if !exit_status.success() {
+                println!("bad status: {}", exit_status)
+            }
         } else {
             panic!("exe is empty")
         }
