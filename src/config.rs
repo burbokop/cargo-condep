@@ -11,6 +11,8 @@ use regex::{Regex, Captures};
 use serde::{Serialize, Deserialize};
 
 pub mod print {
+    use std::process::exit;
+
     use termion::{color::{self, Reset, Fg, LightGreen, LightYellow, LightRed}, style::{self, Bold}};
 
     pub fn info(header: &str, str: String) {
@@ -22,7 +24,8 @@ pub mod print {
     }
     
     pub fn fatal(header: &str, str: String) {
-        panic!("{}{}{}{}{} {}", Bold, Fg(LightRed), header, style::Reset{}, Reset{}.fg_str(), str)
+        println!("{}{}{}{}{} {}", Bold, Fg(LightRed), header, style::Reset{}, Reset{}.fg_str(), str);
+        exit(-1)
     }    
 
     pub const ADDING_TO_ENV:       &str = "  Adding env";
