@@ -244,7 +244,7 @@ impl Run {
                 .unwrap();
 
             if !exit_status.success() {
-                println!("bad status: {}", exit_status)
+                config::print::fatal(config::print::BAD_STATUS, format!("{}", exit_status))
             }
         } else {
             panic!("exe is empty")

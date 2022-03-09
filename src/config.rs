@@ -10,7 +10,7 @@ use std::process::{Command};
 use regex::{Regex, Captures};
 use serde::{Serialize, Deserialize};
 
-mod print {
+pub mod print {
     use termion::{color::{self, Reset, Fg, LightGreen, LightYellow, LightRed}, style::{self, Bold}};
 
     pub fn info(header: &str, str: String) {
@@ -31,7 +31,9 @@ mod print {
     pub const SETTING_ENV_FAILED:  &str = "  Env failed";
     pub const LINK_CREATED:        &str = "Link created";
     pub const CAN_NOT_CREATE_LINK: &str = " Link failed";
-    pub const ENV_DUMPING_FAILED:  &str = " Dump failed";
+    pub const ENV_DUMPING_FAILED:  &str = " Dump failed";                                             
+    pub const BAD_STATUS:          &str = "  Bad status";                                             
+    
     
 }
 
