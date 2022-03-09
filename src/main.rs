@@ -237,10 +237,11 @@ impl Run {
             let mut child = std::process::Command::new(&cwd.join(self.delegate.exe))
                 .args(self.delegate.args)
                 .spawn()
-                .expect("failed to execute child");
+                .unwrap();
 
-            let ecode = child.wait()
-                 .expect("failed to wait on child");
+            let ecode = child
+                .wait()
+                .unwrap();
 
             assert!(ecode.success());
         } else {
