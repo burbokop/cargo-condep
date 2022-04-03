@@ -406,8 +406,6 @@ impl Condep {
 fn main() {
     println!("running condep (args: {:?})", std::env::args());
 
-    panic!("----------------: {:?}", std::env::args().collect::<Vec<_>>());
-
     match CargoSubCommand::parse() {
         CargoSubCommand::Condep(cmd) => cmd.exec(),
         CargoSubCommand::SomeAction(_) => {
